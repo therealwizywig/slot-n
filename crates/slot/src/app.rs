@@ -12,11 +12,12 @@ use slot_store::{
     WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name,
+    board_from, board_zoom, draw_empty_slot, draw_footer, draw_footer_sync, draw_ground, draw_slot_name,
     draw_sticker, ease, footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap,
     shelf_cart_at, ButtonLegend, ClockPicker, Draw, FfState, Hud, HudKind, Icon, KeyInput,
     KeyOutcome, Keyboard, Legend, LinkBadge, ListIcon, ListPage, ListRow, Millis, Mould, Placed,
     Polaroids, PowerChoice, QrPage, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal,
+    SyncIndicator,
     Shelf, SlotChrome, TexId, Toast, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HOP_LIFT,
     MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
@@ -437,6 +438,9 @@ pub struct App {
     starting: Option<LinkStarting>,
     link_transport: Option<(u16, Box<dyn LinkChannel>)>,
     restarting: bool,
+    /// The picture is on a TV over HDMI: the lid does nothing.
+    external_display: bool,
+    achievement_sync: Option<SyncIndicator>,
     act_at: Millis,
     root: Option<PathBuf>,
     state: SlotState,
@@ -660,6 +664,8 @@ impl App {
             starting: None,
             link_transport: None,
             restarting: false,
+            external_display: false,
+            achievement_sync: None,
             act_at: 0,
             root: None,
             state: SlotState::default(),
@@ -1975,6 +1981,24 @@ impl App {
         self.powering_off || self.restarting
     }
 
+    /// The picture is on a TV over HDMI. Closing the lid then leaves the game
+    /// running instead of sleeping the handheld.
+    pub fn set_external_display(&mut self, on: bool) {
+        self.external_display = on;
+    }
+
+    pub fn external_display(&self) -> bool {
+        self.external_display
+    }
+
+    pub fn set_achievement_sync(&mut self, icon: Option<slot_ui::SyncIndicator>) {
+        self.achievement_sync = icon;
+    }
+
+    pub fn home_connected(&self) -> bool {
+        self.wifi_view.connected.is_some()
+    }
+
     pub fn restarting(&self) -> bool {
         self.restarting
     }
@@ -2211,6 +2235,9 @@ impl App {
 
     fn act(&mut self, action: Action) {
         self.track_held_dir(action);
+        if self.external_display && matches!(action, Action::LidClose | Action::LidOpen) {
+            return;
+        }
         match action {
             Action::LidClose => return self.doze(),
             Action::LidOpen => return self.wake(),
@@ -4422,6 +4449,9 @@ impl App {
                     footer_ink(self.light()),
                     out,
                 );
+                if let Some(icon) = self.achievement_sync {
+                    draw_footer_sync(self.canvas(), self.shelf_clock, icon, out);
+                }
             }
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
@@ -4625,6 +4655,9 @@ impl App {
             footer_ink(self.light()),
             out,
         );
+        if let Some(icon) = self.achievement_sync {
+            draw_footer_sync(self.canvas(), self.shelf_clock, icon, out);
+        }
         shift_down(&mut out[start..], self.menu_footer_offset());
     }
 

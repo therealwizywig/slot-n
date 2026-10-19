@@ -7,12 +7,15 @@ const BACK: &[u8] = include_bytes!("../../assets/ui_back.pcm");
 const TOGGLE: &[u8] = include_bytes!("../../assets/ui_toggle.pcm");
 const SHELF: &[u8] = include_bytes!("../../assets/ui_shelf.pcm");
 const ERROR: &[u8] = include_bytes!("../../assets/ui_error.pcm");
+/// Original, softly enveloped two-note chime, 240 ms at 48 kHz.
+const ACHIEVEMENT: &[u8] = include_bytes!("../../assets/achievement.pcm");
 const ASSET_HZ: f32 = 48_000.0;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Sfx {
     Insert,
     Eject,
+    Achievement,
     /// The cursor stepping to the next row, cart or key.
     Move,
     /// A page or menu opening, or A doing what it says.
@@ -42,6 +45,7 @@ impl Sfx {
         match self {
             Sfx::Insert => 0.097,
             Sfx::Eject => 0.021,
+            Sfx::Achievement => 0.0,
             _ => 0.0,
         }
     }
@@ -61,6 +65,7 @@ impl Sfx {
             Sfx::Toggle => TOGGLE,
             Sfx::Shelf => SHELF,
             Sfx::Error => ERROR,
+            Sfx::Achievement => ACHIEVEMENT,
         }
     }
 

@@ -283,7 +283,7 @@ fn fast_forward_with_run_ahead_on_never_rolls_back() {
         calls.iter().any(|c| matches!(c, Call::Run { .. })),
         "fast forward ran nothing"
     );
-    assert_eq!(loads(&calls), [], "fast forward rolled the game back");
+    assert_eq!(loads(&calls), Vec::<u64>::new(), "fast forward rolled the game back");
 }
 
 #[test]
@@ -401,7 +401,7 @@ fn a_cable_session_with_run_ahead_on_steps_both_consoles_and_neither_rolls_back(
         wait_for(|| host.linked_frames() >= 30 && join.linked_frames() >= 30),
         "the consoles never stepped together"
     );
-    assert_eq!(loads(&calls(&host_log)), [], "the host rolled back");
+    assert_eq!(loads(&calls(&host_log)), Vec::<u64>::new(), "the host rolled back");
     assert!(
         loads(&calls(&join_log)).len() <= 1,
         "the second console loaded more than the host's game: {:?}",

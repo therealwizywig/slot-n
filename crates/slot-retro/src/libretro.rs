@@ -1025,6 +1025,24 @@ impl RetroCore for LibretroCore {
         Ok(())
     }
 
+    fn achievement_memory(&self, ram: &mut [u8]) -> [usize; 3] {
+        if ram.len() < 0x58000 {
+            return [0; 3];
+        }
+        let mut valid = [0; 3];
+        if let Some(sys) = self.memory(MEMORY_SYSTEM_RAM) {
+            let n = sys.len().min(0x48000);
+            ram[..n].copy_from_slice(&sys[..n]);
+            valid[0] = n;
+        }
+        if let Some(sav) = self.memory(MEMORY_SAVE_RAM) {
+            let n = sav.len().min(0x10000);
+            ram[0x48000..0x48000 + n].copy_from_slice(&sav[..n]);
+            valid[2] = n;
+        }
+        valid
+    }
+
     fn av_info(&self) -> AvInfo {
         self.host.timing
     }

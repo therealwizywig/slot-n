@@ -36,6 +36,7 @@ pub const DEVICE_ANALOG: c_uint = 5;
 pub const DEVICE_INDEX_ANALOG_BUTTON: c_uint = 2;
 pub const MEMORY_SAVE_RAM: c_uint = 0;
 pub const MEMORY_RTC: c_uint = 1;
+pub const MEMORY_SYSTEM_RAM: c_uint = 2;
 pub const JOYPAD_MASK: c_uint = 256;
 
 pub const NETPACKET_UNRELIABLE: i32 = 0;

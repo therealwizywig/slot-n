@@ -24,8 +24,10 @@ thirteen systems, Wi-Fi and Bluetooth, analog sticks, network services and updat
 
 ## What it does
 
-- **Fifty-five systems**, from arcade boards to the PSP, each on its own shelf as the media it came on: carts, cards, discs, floppies and tapes. Nintendo 64, Dreamcast and PSP draw on the GPU.
+- **Fifty-five systems**, from arcade boards to the PSP, each on its own shelf as the media it came on: carts, cards, discs, floppies and tapes. Nintendo 64, Dreamcast and PSP draw on the GPU. NES, SNES, Genesis/Mega Drive, Master System, Sega CD, 32X and Game Gear are first-class shelves.
+- **HDMI out** on H700 handhelds with a mini-HDMI port (RG SP and friends): plug in a TV for 1080p, unplug to return to the panel. The lid does not sleep the handheld while the picture is on the TV.
 - **Wi-Fi** with an on-screen keyboard, and **Bluetooth** controllers and headphones.
+- **RetroAchievements** (softcore): put `Config/retroachievements.toml` on the card. Unlocks work online or offline and sync when you are back on Wi-Fi, for Game Boy, NES, SNES, Genesis, Master System, Sega CD, 32X and Game Gear.
 - **Analog sticks** on the models that have them.
 - **Services:** SSH and SFTP, sharing the card over SMB, Tailscale (sign in by scanning a code) and WireGuard.
 - **Updates over the air**, for unslot and for BaseOS under it, with an automatic rollback if a new version never starts.

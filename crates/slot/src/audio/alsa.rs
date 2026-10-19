@@ -24,6 +24,12 @@ const RELEASE_AFTER: Duration = Duration::from_secs(3);
 
 const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
 
+/// The H700's HDMI sound card, tried first while the picture is on a TV.
+const HDMI_DEVICES: [&str; 2] = ["plughw:CARD=ahubhdmi,DEV=0", "plughw:ahubhdmi"];
+
+/// Set by Slot at start-up, before any sound opens, when the picture is on HDMI.
+pub const HDMI_ENV: &str = "SLOT_AUDIO_HDMI";
+
 /// A device to try before the built-in ones: Bluetooth headphones, while they are connected.
 static ROUTE: Mutex<Option<String>> = Mutex::new(None);
 /// Bumped each time the route changes, so the output thread knows to reopen.
@@ -44,9 +50,13 @@ pub fn set_route(device: Option<String>) {
 }
 
 fn devices() -> Vec<String> {
+    let hdmi = std::env::var_os(HDMI_ENV).is_some();
     let route = ROUTE.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    route
+    hdmi.then_some(HDMI_DEVICES)
         .into_iter()
+        .flatten()
+        .map(|d| d.to_string())
+        .chain(route)
         .chain(DEVICES.iter().map(|d| d.to_string()))
         .collect()
 }

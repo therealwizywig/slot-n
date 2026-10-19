@@ -62,12 +62,12 @@ pub use clock::{
     ClockPicker, Field,
 };
 pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};
-pub use footer::{draw_corners, draw_footer, Printed, FOOTER_Y};
+pub use footer::{draw_corners, draw_footer, draw_footer_sync, sync_icon_face, Printed, SyncIndicator, FOOTER_Y, SYNC_PX};
 pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
     HUD_ICON_PX, HUD_INK, HUD_MS, LINK_HOST_INK, LINK_JOIN_INK, PLATE_H,
 };
-pub use icon::{badge_face, icon_box, icon_face, star_face, warm_fonts, Badge, Icon};
+pub use icon::{achievement_icon_face, badge_face, icon_box, icon_face, star_face, warm_fonts, Badge, Icon};
 pub use keyboard::{KeyInput, KeyOutcome, Keyboard};
 pub use link_art::{
     link_art, LinkArt, ADAPTER_BASE_X, ADAPTER_BASE_Y, ADAPTER_H, ADAPTER_W, ARCS, ARROW_H,

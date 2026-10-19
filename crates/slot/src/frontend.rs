@@ -34,6 +34,7 @@ const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
     session: Session,
+    achievements: crate::achievement_ui::Notifications,
     start: Instant,
     last: Instant,
     draws: Vec<Draw>,
@@ -174,6 +175,7 @@ impl Frontend {
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
             session,
+            achievements: crate::achievement_ui::Notifications::new(),
             start: now,
             last: now,
             draws: Vec::new(),
@@ -629,7 +631,9 @@ impl Frontend {
             &mut self.switcher,
         );
         self.draws.clear();
+        self.achievements.update(&mut self.session, compositor);
         self.session.app().draw(&mut self.draws);
+        self.achievements.draw(&self.session, &mut self.draws);
         compositor.draw_list(&self.draws);
     }
 
@@ -752,7 +756,7 @@ impl Frontend {
     }
 
     pub fn powering_off(&self) -> bool {
-        self.session.app().ready_to_power_off()
+        self.session.app().ready_to_power_off() && self.session.achievement_flush_ready()
     }
 
     pub fn restarting(&self) -> bool {
@@ -765,6 +769,17 @@ impl Frontend {
 
     pub fn poweroff(&mut self) {
         self.session.app_mut().poweroff();
+    }
+
+    /// Save for Slot to exit and be started again, as when an HDMI cable is
+    /// plugged in or pulled out: the resume state for the game in the slot
+    /// and every pending save, so the game comes back where it was.
+    pub fn relaunch(&mut self) {
+        self.session.app_mut().flush_resume();
+    }
+
+    pub fn set_external_display(&mut self, on: bool) {
+        self.session.app_mut().set_external_display(on);
     }
 }
 

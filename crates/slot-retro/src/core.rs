@@ -118,6 +118,13 @@ pub trait RetroCore: Send {
         ))
     }
     fn take_audio(&mut self) -> Vec<i16>;
+    /// Hands a buffer from `take_audio` back once its samples have been used.
+    fn recycle_audio(&mut self, _buf: Vec<i16>) {}
+    /// Copy console RAM for RetroAchievements. Returns the valid length of each
+    /// region packed into `ram` (IWRAM, EWRAM, SRAM on GBA; system/save elsewhere).
+    fn achievement_memory(&self, _ram: &mut [u8]) -> [usize; 3] {
+        [0; 3]
+    }
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;
     fn save_ram(&self) -> Option<Vec<u8>>;
