@@ -168,6 +168,9 @@ const SCREEN_ORDER: [Platform; Platform::COUNT] = [
     Platform::Pico8,
     Platform::Tic80,
     Platform::Psp,
+    Platform::OpenBor,
+    Platform::MediaPlayer,
+    Platform::Nds,
 ];
 
 impl QuickRow {

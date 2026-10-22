@@ -37,6 +37,7 @@ pub mod link_start;
 pub mod link_state;
 pub mod pak;
 pub mod panel_turn;
+pub mod nds;
 pub mod persist;
 pub mod prefetch;
 pub mod resample;

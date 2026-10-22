@@ -21,7 +21,7 @@ ASSETS = ROOT / "assets"
 # name: (shell colour, label box x, y, w, h) — the boxes render_media.py prints.
 MEDIA = {
     "nes": ((0x8a, 0x8a, 0x8e), (25, 20, 253, 208)),
-    "snes": ((0x9a, 0x99, 0xa0), (84, 56, 191, 146)),
+    "snes": ((0x9a, 0x99, 0xa0), (85, 5, 230, 106)),
     "genesis": ((0x2a, 0x2a, 0x2c), (27, 107, 213, 213)),
     "sms": ((0x26, 0x26, 0x28), (118, 17, 219, 146)),
     "gamegear": ((0x22, 0x22, 0x24), (56, 71, 207, 160)),
@@ -56,6 +56,7 @@ MEDIA = {
     "cpc3": ((0xd0, 0xd0, 0xcc), (29, 29, 230, 180)),
     "umd": ((0x2c, 0x2c, 0x30), (40, 70, 240, 200)),
     "fantasy": ((0xe0, 0x50, 0x60), (41, 46, 238, 192)),
+    "vhs": ((0x2a, 0x2a, 0x2e), (150, 72, 120, 88)),
 }
 
 

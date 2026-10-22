@@ -236,6 +236,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_palette: GbPalette::DEFAULT,
             appearance: Appearance::Dark,
             wallpaper: WallpaperPick::Default,
+            wallpapers: Platform::ALL.map(|_| WallpaperPick::Default),
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_titles: false,
@@ -479,7 +480,8 @@ fn an_unreadable_platform_reads_as_a_card_that_never_said() {
         ("cart_platform=nes\n", Some(Platform::Nes)),
         ("cart_platform=gameboy\n", None),
         ("cart_platform=0\n", None),
-        ("cart_platform=nds\n", None),
+        ("cart_platform=nds\n", Some(Platform::Nds)),
+        ("cart_platform=nope\n", None),
         ("cart_platform=GBA\n", Some(Platform::Gba)),
         ("cart_platform=Gbc\n", Some(Platform::Gbc)),
     ] {
@@ -681,4 +683,37 @@ shader_gb=dot
     let s = read_slot_state(d.path());
     assert_eq!(s.screen(Platform::Gba).shader, Shader::Grid);
     assert_eq!(s.screen(Platform::Gb).shader, Shader::Simpletex);
+}
+
+#[test]
+fn each_shelf_system_keeps_its_own_wallpaper() {
+    let d = tmp_root();
+    let mut s = SlotState {
+        clock_set: true,
+        wallpaper: WallpaperPick::File("gba.png".into()),
+        ..SlotState::default()
+    };
+    s.set_wallpaper_for(Platform::Gba, WallpaperPick::File("gba.png".into()));
+    s.set_wallpaper_for(Platform::Gb, WallpaperPick::File("gb.png".into()));
+    s.set_wallpaper_for(Platform::Nes, WallpaperPick::File("nes.png".into()));
+    s.set_wallpaper_for(Platform::Snes, WallpaperPick::Blur);
+    s.set_wallpaper_for(Platform::Nds, WallpaperPick::None);
+    write_slot_state(d.path(), &s).unwrap();
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    for line in [
+        "wallpaper_gba=gba.png",
+        "wallpaper_gb=gb.png",
+        "wallpaper_nes=nes.png",
+        "wallpaper_snes=default_blur",
+        "wallpaper_nds=none",
+    ] {
+        assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
+    }
+    let got = read_slot_state(d.path());
+    assert_eq!(got.wallpaper_for(Platform::Gba), s.wallpaper_for(Platform::Gba));
+    assert_eq!(got.wallpaper_for(Platform::Gb), s.wallpaper_for(Platform::Gb));
+    assert_eq!(got.wallpaper_for(Platform::Nes), s.wallpaper_for(Platform::Nes));
+    assert_eq!(got.wallpaper_for(Platform::Snes), s.wallpaper_for(Platform::Snes));
+    assert_eq!(got.wallpaper_for(Platform::Nds), s.wallpaper_for(Platform::Nds));
+    assert_eq!(got.wallpaper_for(Platform::Gbc), &WallpaperPick::Default);
 }

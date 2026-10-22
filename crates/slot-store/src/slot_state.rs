@@ -217,6 +217,9 @@ pub struct SlotState {
     pub gb_palette: GbPalette,
     pub appearance: Appearance,
     pub wallpaper: WallpaperPick,
+    /// One wallpaper pick a platform, in `Platform::ALL` order. The shelf uses
+    /// `Platform::SHELF`; cycling Wallpaper on a system writes that system's row.
+    pub wallpapers: [WallpaperPick; Platform::COUNT],
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
     pub show_titles: bool,
@@ -271,6 +274,15 @@ impl SlotState {
 
     pub fn screen_mut(&mut self, platform: Platform) -> &mut Screen {
         &mut self.screens[platform.index()]
+    }
+
+    pub fn wallpaper_for(&self, platform: Platform) -> &WallpaperPick {
+        &self.wallpapers[platform.index()]
+    }
+
+    pub fn set_wallpaper_for(&mut self, platform: Platform, pick: WallpaperPick) {
+        self.wallpapers[platform.index()] = pick.clone();
+        self.wallpaper = pick;
     }
 
     pub fn played(&mut self, platform: Platform, stem: &str) {
@@ -374,6 +386,7 @@ impl Default for SlotState {
             gb_palette: GbPalette::DEFAULT,
             appearance: Appearance::Dark,
             wallpaper: WallpaperPick::Default,
+            wallpapers: Platform::ALL.map(|_| WallpaperPick::Default),
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             clock_12h: false,
@@ -466,6 +479,13 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.appearance.name(),
         s.wallpaper.key()
     );
+    for p in Platform::SHELF {
+        text.push_str(&format!(
+            "wallpaper_{}={}\n",
+            p.key(),
+            s.wallpapers[p.index()].key()
+        ));
+    }
     for p in Platform::ALL {
         let (key, screen) = (p.key(), s.screen(p));
         text.push_str(&format!(
@@ -531,6 +551,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut gb_palette = None;
     let mut appearance = None;
     let mut wallpaper = None;
+    let mut wallpapers: [Option<WallpaperPick>; Platform::COUNT] = std::array::from_fn(|_| None);
     let mut wallpaper_tint = None;
     let mut show_recents = None;
     let mut clock_12h = None;
@@ -554,6 +575,7 @@ fn parse(text: &str) -> Option<SlotState> {
                     shaders[p.index()] =
                         Shader::parse(value).filter(|s| p.spec().shaders.contains(s))
                 }
+                "wallpaper" => wallpapers[p.index()] = Some(WallpaperPick::parse(value)),
                 _ => bezels[p.index()] = Some(BezelPick::parse(value)),
             }
             continue;
@@ -639,7 +661,15 @@ fn parse(text: &str) -> Option<SlotState> {
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
         appearance: appearance.unwrap_or(fallback.appearance),
-        wallpaper: wallpaper.unwrap_or(fallback.wallpaper),
+        wallpaper: wallpaper.clone().unwrap_or_else(|| fallback.wallpaper.clone()),
+        wallpapers: {
+            let inherited = wallpaper.unwrap_or_else(|| fallback.wallpaper.clone());
+            Platform::ALL.map(|p| {
+                wallpapers[p.index()]
+                    .clone()
+                    .unwrap_or_else(|| inherited.clone())
+            })
+        },
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
         show_recents: show_recents.unwrap_or(fallback.show_recents),
         clock_12h: clock_12h.unwrap_or(fallback.clock_12h),
@@ -662,7 +692,7 @@ fn parse(text: &str) -> Option<SlotState> {
 
 /// Splits a key like `shader_gbc` into the setting and the platform it is for.
 fn per_platform(key: &str) -> Option<(&str, Platform)> {
-    ["colour_correction", "shader", "bezel"]
+    ["colour_correction", "shader", "bezel", "wallpaper"]
         .into_iter()
         .find_map(|setting| {
             let rest = key.strip_prefix(setting)?.strip_prefix('_')?;

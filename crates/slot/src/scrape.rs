@@ -103,6 +103,8 @@ pub fn source(platform: Platform, rom: &Path) -> (Vec<&'static str>, u32) {
         Platform::Pico8 => (vec!["PICO-8"], 234),
         Platform::Tic80 => (vec!["TIC-80"], 222),
         Platform::Psp => (vec!["Sony - PlayStation Portable"], 61),
+        Platform::OpenBor | Platform::MediaPlayer => (vec![], 0),
+        Platform::Nds => (vec!["Nintendo - Nintendo DS"], 15),
     }
 }
 
@@ -564,6 +566,7 @@ fn label_for(
     let (mut logo, mut boxart) = (None, None);
 
     if let Some(login) = login {
+        if system != 0 {
         let size = std::fs::metadata(&cart.rom).map(|m| m.len()).unwrap_or(0);
         let file = cart
             .rom
@@ -578,6 +581,7 @@ fn label_for(
             if let Some(url) = ss_media(&answer, "box-2D") {
                 boxart = png(fetch.get(&url)?);
             }
+        }
         }
     }
 

@@ -44,7 +44,7 @@ fn bare() -> bool {
 impl HostSurface {
     pub fn new(events: &ActiveEventLoop) -> Result<Self, GfxError> {
         let mut attrs = Window::default_attributes()
-            .with_title("unslot.")
+            .with_title("slot-n")
             .with_inner_size(winit::dpi::PhysicalSize::<u32>::from(size()));
         if bare() {
             attrs = attrs.with_decorations(false);

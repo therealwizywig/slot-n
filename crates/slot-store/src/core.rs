@@ -55,10 +55,14 @@ pub enum Core {
     Retro8,
     Tic80,
     Ppsspp,
+    Openbor,
+    Ffmpeg,
+    Drastic,
+    MelonDs,
 }
 
 impl Core {
-    pub const ALL: [Core; 47] = [
+    pub const ALL: [Core; 51] = [
         Core::Mgba,
         Core::Gpsp,
         Core::Fceumm,
@@ -106,6 +110,10 @@ impl Core {
         Core::Retro8,
         Core::Tic80,
         Core::Ppsspp,
+        Core::Openbor,
+        Core::Ffmpeg,
+        Core::Drastic,
+        Core::MelonDs,
     ];
 
     /// The core's file name without `_libretro` and the extension, as the buildbot names it.
@@ -158,6 +166,10 @@ impl Core {
             Core::Retro8 => "retro8",
             Core::Tic80 => "tic80",
             Core::Ppsspp => "ppsspp",
+            Core::Openbor => "openbor",
+            Core::Ffmpeg => "ffmpeg",
+            Core::Drastic => "drastic",
+            Core::MelonDs => "melonds",
         }
     }
 
@@ -214,6 +226,10 @@ impl Core {
             Core::Retro8 => "Retro8",
             Core::Tic80 => "TIC-80",
             Core::Ppsspp => "PPSSPP",
+            Core::Openbor => "OpenBOR",
+            Core::Ffmpeg => "FFmpeg",
+            Core::Drastic => "DraStic",
+            Core::MelonDs => "melonDS",
         }
     }
 

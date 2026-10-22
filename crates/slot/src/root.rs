@@ -16,7 +16,7 @@ pub fn dirs() -> Vec<String> {
     ] {
         dirs.push(top.to_string());
         dirs.extend(
-            Platform::ALL
+            Platform::SHELF
                 .into_iter()
                 .filter(|p| !only_with_bezels || p.spec().bezels)
                 .map(|p| format!("{top}/{}", p.dir_name())),

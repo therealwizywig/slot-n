@@ -587,7 +587,7 @@ pub struct FaceWant {
 fn shelves_of(carts: Vec<Cart>) -> Vec<(Rack, Shelf)> {
     let mut rows: Vec<(Rack, Vec<Cart>)> = [Rack::Recents, Rack::Favorites]
         .into_iter()
-        .chain(Platform::ALL.iter().map(|p| Rack::Of(*p)))
+        .chain(Platform::SHELF.iter().map(|p| Rack::Of(*p)))
         .map(|r| (r, Vec::new()))
         .collect();
     for cart in carts {
@@ -797,6 +797,7 @@ impl App {
         } else {
             app.phase = clock_screen(system_secs(), 0, false);
         }
+        app.apply_shelf_wallpaper();
         app
     }
 
@@ -853,6 +854,7 @@ impl App {
         self.slot_letter = None;
         self.shelf_named = None;
         self.name_pending = true;
+        self.apply_shelf_wallpaper();
     }
 
     fn track_held_dir(&mut self, action: Action) {
@@ -946,7 +948,30 @@ impl App {
         let n = self.shelves.len() as i32;
         (1..n)
             .map(|step| (self.shelf_at as i32 + by * step).rem_euclid(n) as usize)
-            .find(|at| !self.shelves[*at].1.carts.is_empty())
+            .find(|&at| self.shelf_open(at))
+    }
+
+    fn shelf_open(&self, at: usize) -> bool {
+        let (rack, shelf) = &self.shelves[at];
+        if !shelf.carts.is_empty() {
+            return true;
+        }
+        matches!(rack, Rack::Of(p) if p.on_shelf())
+    }
+
+    fn viewing_platform(&self) -> Option<Platform> {
+        match self.shelves.get(self.shelf_at).map(|r| r.0) {
+            Some(Rack::Of(p)) => Some(p),
+            _ => None,
+        }
+    }
+
+    fn apply_shelf_wallpaper(&mut self) {
+        let Some(p) = self.viewing_platform() else {
+            return;
+        };
+        self.state.wallpaper = self.state.wallpapers[p.index()].clone();
+        self.random_wallpaper = None;
     }
 
     fn remembered_seat(&self) -> Option<(usize, usize)> {
@@ -1298,7 +1323,12 @@ impl App {
         } else {
             (at + n - 1) % n
         };
-        self.state.wallpaper = choices[next].clone();
+        let pick = choices[next].clone();
+        match self.viewing_platform() {
+            Some(p) => self.state.set_wallpaper_for(p, pick),
+            None => self.state.wallpaper = pick,
+        }
+        self.random_wallpaper = None;
     }
 
     fn menu_ground(&self) -> Option<TexId> {
@@ -1357,12 +1387,12 @@ impl App {
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
-        // The Game Boy family's pages are always there; another system's only once the card
-        // holds a game for it.
+        // The Game Boy family, NES, SNES and NDS pages are always there; other
+        // systems from the tree stay off this fork's menus.
         hidden.extend(
             Platform::ALL
                 .into_iter()
-                .filter(|p| p.spec().native && !self.has_games(*p))
+                .filter(|p| !p.on_shelf() || (p.spec().native && !self.has_games(*p)))
                 .map(QuickRow::ScreenOf),
         );
         if !self.framed_panel() {
@@ -5194,6 +5224,23 @@ impl App {
         };
     }
 
+    /// After a standalone emulator (DraStic) returns, go back to the shelf without a libretro save.
+    pub fn eject_after_standalone(&mut self) {
+        let cart = match &mut self.phase {
+            Phase::Playing { cart } | Phase::Inserting { cart, .. } => std::mem::take(cart),
+            _ => {
+                self.phase = Phase::Shelf;
+                return;
+            }
+        };
+        self.in_game_menu = None;
+        self.pending = None;
+        self.phase = Phase::Ejecting {
+            cart,
+            t: -EJECT_HOLD_S,
+        };
+    }
+
     fn flush_eject(&mut self, stem: &str) {
         self.settle_saves();
         let (Some(root), Some(snapshot)) = (&self.root, &self.snapshot) else {
@@ -5501,6 +5548,7 @@ impl App {
             self.slot_letter = None;
             self.shelf_named = None;
             self.name_pending = true;
+            self.apply_shelf_wallpaper();
         }
         self.shelves[at].1.select(i);
         self.remember_shelf();

@@ -61,6 +61,9 @@ pub enum Platform {
     Pico8,
     Tic80,
     Psp,
+    OpenBor,
+    MediaPlayer,
+    Nds,
 }
 
 /// How the scanner finds a game's title, and for the GBA its four-letter code, in the ROM.
@@ -682,10 +685,38 @@ const SPECS: [Spec; Platform::COUNT] = [
         rewind: false,
         ..HANDHELD
     },
+    Spec {
+        name: "OpenBOR",
+        dir: "OPENBOR",
+        extensions: &["pak"],
+        cores: &[Core::Openbor],
+        turbo: false,
+        ..CONSOLE
+    },
+    Spec {
+        name: "Media Player",
+        dir: "MEDIA",
+        extensions: &["mp4", "mkv", "avi", "webm", "mov", "m4v"],
+        cores: &[Core::Ffmpeg],
+        turbo: false,
+        rewind: false,
+        ..CONSOLE
+    },
+    Spec {
+        name: "Nintendo DS",
+        short: "NDS",
+        dir: "NDS",
+        extensions: &["nds", "zip"],
+        cores: &[Core::Drastic, Core::MelonDs],
+        shoulders: true,
+        turbo: false,
+        rewind: false,
+        ..CONSOLE
+    },
 ];
 
 impl Platform {
-    pub const COUNT: usize = 55;
+    pub const COUNT: usize = 58;
     pub const ALL: [Platform; Platform::COUNT] = [
         Platform::Gba,
         Platform::Gb,
@@ -742,7 +773,33 @@ impl Platform {
         Platform::Pico8,
         Platform::Tic80,
         Platform::Psp,
+        Platform::OpenBor,
+        Platform::MediaPlayer,
+        Platform::Nds,
     ];
+
+    /// The six systems this fork puts on the shelf. Other platforms stay in the
+    /// tree so GB, GBC and GBA code paths are untouched.
+    pub const SHELF: [Platform; 6] = [
+        Platform::Gba,
+        Platform::Gb,
+        Platform::Gbc,
+        Platform::Nes,
+        Platform::Snes,
+        Platform::Nds,
+    ];
+
+    pub fn on_shelf(self) -> bool {
+        matches!(
+            self,
+            Platform::Gba
+                | Platform::Gb
+                | Platform::Gbc
+                | Platform::Nes
+                | Platform::Snes
+                | Platform::Nds
+        )
+    }
 
     pub fn spec(self) -> &'static Spec {
         &SPECS[self.index()]
@@ -841,5 +898,24 @@ mod tests {
         for p in [Platform::Snes, Platform::Genesis, Platform::PlayStation] {
             assert!(!p.spec().turbo, "{p:?} would lose X and Y to turbo");
         }
+    }
+
+    #[test]
+    fn shelf_is_the_game_boy_family_and_nes_snes_nds() {
+        assert_eq!(
+            Platform::SHELF,
+            [
+                Platform::Gba,
+                Platform::Gb,
+                Platform::Gbc,
+                Platform::Nes,
+                Platform::Snes,
+                Platform::Nds
+            ]
+        );
+        for p in Platform::SHELF {
+            assert!(p.on_shelf(), "{p:?}");
+        }
+        assert!(!Platform::Genesis.on_shelf());
     }
 }

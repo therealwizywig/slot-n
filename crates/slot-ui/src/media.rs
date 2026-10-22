@@ -46,6 +46,7 @@ pub enum Media {
     AmstradDisk,
     Umd,
     Fantasy,
+    Vhs,
 }
 
 struct Art {
@@ -66,9 +67,9 @@ const ART: [Art; Media::COUNT] = [
     },
     Art {
         png: include_bytes!("../../../assets/snes_neutral.png"),
-        w: 360,
-        h: 259,
-        label: (84, 56, 191, 146),
+        w: 400,
+        h: 260,
+        label: (85, 5, 230, 106),
         colour: [0x9a, 0x99, 0xa0],
     },
     Art {
@@ -309,6 +310,13 @@ const ART: [Art; Media::COUNT] = [
         label: (41, 46, 238, 192),
         colour: [0xe0, 0x50, 0x60],
     },
+    Art {
+        png: include_bytes!("../../../assets/vhs_neutral.png"),
+        w: 420,
+        h: 236,
+        label: (150, 72, 120, 88),
+        colour: [0x2a, 0x2a, 0x2e],
+    },
 ];
 
 /// The disc's print runs from the clear hub to just inside the rim, as fractions of its radius:
@@ -320,7 +328,7 @@ const PRINT_OUTER: f32 = 58.5 / 60.0;
 const SEATED_MAX_H: u32 = 259;
 
 impl Media {
-    pub const COUNT: usize = 36;
+    pub const COUNT: usize = 37;
     pub const ALL: [Media; Media::COUNT] = [
         Media::Nes,
         Media::Snes,
@@ -358,6 +366,7 @@ impl Media {
         Media::AmstradDisk,
         Media::Umd,
         Media::Fantasy,
+        Media::Vhs,
     ];
 
     /// What a platform's games come on, or None for the Game Boy family's own moulds.
@@ -409,7 +418,9 @@ impl Media {
             Platform::ZxSpectrum => Media::Tape,
             Platform::AmstradCpc => Media::AmstradDisk,
             Platform::Psp => Media::Umd,
-            Platform::Pico8 | Platform::Tic80 => Media::Fantasy,
+            Platform::Pico8 | Platform::Tic80 | Platform::OpenBor => Media::Fantasy,
+            Platform::MediaPlayer => Media::Vhs,
+            Platform::Nds => Media::Lynx,
         })
     }
 

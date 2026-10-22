@@ -12,6 +12,7 @@
 /dist
 *.dylib
 *.so
+!card/System/nds/libs/libadvdrastic.so
 
 .DS_Store
 /.idea/

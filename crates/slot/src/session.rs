@@ -528,6 +528,16 @@ impl Session {
         };
         let core = slot_store::core_for_platform(&self.root, stem, platform);
         launch(&format!("opening {stem} on {}", core.as_str()));
+        if core == slot_store::Core::Drastic {
+            match crate::nds::run(&self.root, &rom) {
+                Ok(()) => self.app.eject_after_standalone(),
+                Err(e) => {
+                    eprintln!("slot: nds: {e}");
+                    self.app.on_core_failed();
+                }
+            }
+            return;
+        }
         self.app.set_core(core);
         self.app.set_platform(platform);
         self.app

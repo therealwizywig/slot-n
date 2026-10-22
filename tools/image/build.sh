@@ -53,15 +53,16 @@ for anchor in '^# Fresh empty FAT32 across' '^if mount -t vfat -o rw "\$CARD" "\
 done
 awk '
 /^# Fresh empty FAT32 across/ {
-	print "# unslot: this card came with unslot on p7. Hold its files in RAM across the format and"
-	print "# put them back after; if they will not all fit, leave p7 at its first size instead."
-	print "keep=/tmp/.cardkeep"
-	print "rm -rf \"$keep\" && mkdir -p \"$keep\" /tmp/.cardold"
+	print "# unslot: stash p7 as gzip tar in RAM across mkfs. A cp -R of a 400+ MiB tree OOMs"
+	print "# on 1 GB handhelds and used to skip the format, leaving ~768 MiB on a 32 GB card."
+	print "keep=/tmp/.cardkeep.tgz"
+	print "rm -f \"$keep\""
+	print "mkdir -p /tmp/.cardold"
 	print "if mount -t vfat -o ro,utf8,shortname=mixed \"$CARD\" /tmp/.cardold 2>/dev/null; then"
-	print "\tif ! cp -R /tmp/.cardold/. \"$keep\"/ >> \"$LOG\" 2>&1; then"
+	print "\tif ! tar -C /tmp/.cardold -cf - . | gzip -1 > \"$keep\"; then"
 	print "\t\tumount /tmp/.cardold"
-	print "\t\trm -rf \"$keep\""
-	print "\t\tlog \"expand: the card'"'"'s files would not fit in RAM; leaving p7 at its first size\""
+	print "\t\trm -f \"$keep\""
+	print "\t\tlog \"expand: could not stash the card in RAM; leaving p7 at its first size\""
 	print "\t\texit 0"
 	print "\tfi"
 	print "\tumount /tmp/.cardold"
@@ -70,9 +71,11 @@ awk '
 }
 { print }
 /^if mount -t vfat -o rw "\$CARD" "\$dst"/ {
-	print "\tcp -R \"$keep\"/. \"$dst\"/ >> \"$LOG\" 2>&1 || log \"expand: putting the card'"'"'s files back failed\""
+	print "\tif [ -f \"$keep\" ]; then"
+	print "\t\tgzip -dc \"$keep\" | tar -C \"$dst\" -xf - >> \"$LOG\" 2>&1 || log \"expand: putting the card back failed\""
+	print "\tfi"
 }
-/^log "storage expanded/ { print "rm -rf \"$keep\"" }
+/^log "storage expanded/ { print "rm -f \"$keep\"" }
 ' "$work/expand-storage" > "$work/expand-storage.new"
 debugfs -w -f - "$work/rootfs" > /dev/null 2>&1 <<EOF
 rm /usr/sbin/expand-storage

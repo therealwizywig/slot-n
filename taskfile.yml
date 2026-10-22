@@ -11,7 +11,7 @@ vars:
     mame2003_plus neocd mednafen_vb pokemini gw picodrive gearsystem
     mednafen_supergrafx mednafen_pcfx stella2014 a5200 prosystem gearcoleco freeintv o2em
     freechaf potator sameduck fmsx bluemsx vice_x64 puae2021 fuse cap32 hatarib atari800 dosbox_pure
-    np2kai px68k scummvm retro8 tic80
+    np2kai px68k scummvm retro8 tic80 melonds
   # The cores built from source against OpenGL ES, as core:commit: the GPU cores, whose buildbot
   # builds want desktop GL, and vecx, whose buildbot build links it.
   GLES_CORES: >-
@@ -429,10 +429,23 @@ tasks:
       - cp assets/wallpapers/*.jpg assets/wallpapers/*.png {{.OUT}}/System/Wallpapers/
       - |
         set -eu
-        # The release this tree is, which the updater compares with the latest.
+        # Monotonic local build number in BUILD, shown as System/version `bN`.
+        # VERSION= still wins for a tagged release pack.
+        root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+        build_file="$root/BUILD"
+        n=0
+        [ -f "$build_file" ] && n="$(tr -dc '0-9' < "$build_file")"
+        n="${n:-0}"
+        n=$((n + 1))
+        echo "$n" > "$build_file"
+        git_v="$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
         v='{{.VERSION | default ""}}'
-        [ -n "$v" ] || v="$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
+        if [ -z "$v" ]; then
+          v="b${n}"
+        fi
         echo "$v" > "{{.OUT}}/System/version"
+        echo "$n" > "{{.OUT}}/System/build"
+        printf '%s  b%s  %s  dist:device\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$n" "$git_v" >> "$root/builds.log"
       - mv {{.OUT}}/System/services/services.manifest {{.OUT}}/System/licenses/services.manifest
       - |
         set -euo pipefail
@@ -454,10 +467,12 @@ tasks:
   image:device:
     desc: >-
       Build a card image to flash to TF1: BaseOS for TARGET (default rg34xxsp) with unslot already
-      on its BASEOS partition, into OUT (default unslot-TARGET.img.zip). Needs a Linux host
+      on its BASEOS partition, into OUT (default unslot-TARGET-bN.img.zip). Needs a Linux host
     vars:
       TARGET: '{{.TARGET | default "rg34xxsp"}}'
-      OUT: '{{.OUT | default (print "unslot-" .TARGET ".img.zip")}}'
+      BUILDN:
+        sh: tr -dc '0-9' < BUILD
+      OUT: '{{.OUT | default (print "unslot-" .TARGET "-b" .BUILDN ".img.zip")}}'
     cmds:
       - task: dist:device
         vars:

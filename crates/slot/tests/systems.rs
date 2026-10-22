@@ -4,13 +4,17 @@ use common::{app_booting_at, CLOCK_IS_SET};
 use slot::app::{PageModel, Phase};
 use slot::root::missing_bios;
 use slot_input::{Action, Btn};
-use slot_store::{core_for_platform, write_slot_state, Core, Platform, SlotState};
+use slot_store::{write_slot_state, Platform, SlotState};
 
 fn card_with(games: &[&str]) -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     slot::root::ensure(d.path());
     for g in games {
-        std::fs::write(d.path().join("Games").join(g), b"PK").unwrap();
+        let path = d.path().join("Games").join(g);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, b"PK").unwrap();
     }
     write_slot_state(
         d.path(),
@@ -29,26 +33,34 @@ fn press(a: &mut slot::app::App, btn: Btn) {
 }
 
 #[test]
-fn start_on_an_arcade_game_picks_its_core_from_a_list() {
-    let d = card_with(&["ARCADE/sf2ce.zip", "ARCADE/1941.zip"]);
+fn the_shelf_holds_the_game_boy_family_and_nes_snes_nds() {
+    let d = card_with(&[
+        "GBA/fusion.gba",
+        "GB/tetris.gb",
+        "GBC/pokemon.gbc",
+        "NES/Zelda.nes",
+        "SNES/Mario.sfc",
+        "NDS/Mario.nds",
+    ]);
     let (mut a, _clock) = app_booting_at(d.path(), CLOCK_IS_SET);
-    let stem = a.selected_stem().expect("a game on the shelf").to_string();
-    press(&mut a, Btn::Start);
-    let Some(PageModel::List(page)) = a.page_model() else {
-        panic!("no core list: {:?}", a.phase());
-    };
-    let rows: Vec<(&str, &str)> = page
-        .rows
-        .iter()
-        .map(|r| (r.label.as_str(), r.detail.as_str()))
-        .collect();
-    assert_eq!(rows, [("FinalBurn Neo", "In use"), ("MAME 2003-Plus", "")]);
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::A);
-    assert!(matches!(a.phase(), Phase::Shelf), "{:?}", a.phase());
-    assert_eq!(
-        core_for_platform(d.path(), &stem, Platform::Arcade),
-        Core::Mame2003Plus
+    let mut names = vec![a.shelf_platform_name().expect("a system on the shelf")];
+    for _ in 0..8 {
+        press(&mut a, Btn::R1);
+        names.push(a.shelf_platform_name().expect("a system on the shelf"));
+    }
+    for want in [
+        "Game Boy Advance",
+        "Game Boy",
+        "Game Boy Color",
+        "Nintendo Entertainment System",
+        "Super Nintendo",
+        "Nintendo DS",
+    ] {
+        assert!(names.contains(&want), "{want} was not on the shelf: {names:?}");
+    }
+    assert!(
+        !names.iter().any(|n| n.contains("Genesis") || *n == "Arcade"),
+        "a system this fork does not ship sat on the shelf: {names:?}"
     );
 }
 
@@ -64,7 +76,9 @@ fn a_bios_is_found_under_any_of_its_names_or_beside_the_games() {
     assert_eq!(missing_bios(d.path(), Platform::SegaCd), None);
 
     assert!(missing_bios(d.path(), Platform::NeoGeo).is_some());
-    std::fs::write(d.path().join("Games/NEOGEO/neogeo.zip"), b"PK").unwrap();
+    let neogeo = d.path().join("Games/NEOGEO");
+    std::fs::create_dir_all(&neogeo).unwrap();
+    std::fs::write(neogeo.join("neogeo.zip"), b"PK").unwrap();
     assert_eq!(missing_bios(d.path(), Platform::NeoGeo), None);
 
     // Both of the Intellivision's are needed.
@@ -78,14 +92,14 @@ fn a_bios_is_found_under_any_of_its_names_or_beside_the_games() {
 #[test]
 fn every_system_has_its_own_folder_on_the_card() {
     let d = card_with(&[]);
-    for p in Platform::ALL {
+    for p in Platform::SHELF {
         assert!(
             d.path().join("Games").join(p.dir_name()).is_dir(),
             "no Games/{}",
             p.dir_name()
         );
     }
-    let dirs: Vec<&str> = Platform::ALL.iter().map(|p| p.dir_name()).collect();
+    let dirs: Vec<&str> = Platform::SHELF.iter().map(|p| p.dir_name()).collect();
     for (i, d) in dirs.iter().enumerate() {
         assert!(!dirs[i + 1..].contains(d), "two systems share {d}");
     }
@@ -124,8 +138,6 @@ fn type_word(a: &mut slot::app::App, word: &str) {
 #[test]
 fn x_finds_a_game_on_any_shelf_and_a_takes_the_slot_to_it() {
     let d = card_with(&[
-        "ARCADE/mslug.zip",
-        "ARCADE/1941.zip",
         "SNES/Super Metroid.sfc",
         "NES/Metroid.nes",
         "NES/Zelda.nes",
@@ -147,21 +159,18 @@ fn x_finds_a_game_on_any_shelf_and_a_takes_the_slot_to_it() {
         .iter()
         .map(|r| (r.label.as_str(), r.detail.as_str()))
         .collect();
-    // The arcade set is found by its game's name; a name starting with the query comes first.
     assert_eq!(
         found,
         [
             ("Metroid", "NES"),
-            ("Metal Slug Super Vehicle-001", "Arcade"),
             ("Super Metroid", "Super Nintendo"),
         ]
     );
-    assert_eq!(page.status, "3 games match \u{201c}met\u{201d}");
+    assert_eq!(page.status, "2 games match \u{201c}met\u{201d}");
     assert!(
         page.rows[0].icon.as_ref().is_some_and(|i| i.h > 0),
         "the first result has no picture"
     );
-    press(&mut a, Btn::Down);
     press(&mut a, Btn::Down);
     press(&mut a, Btn::A);
     assert!(matches!(a.phase(), Phase::Shelf), "{:?}", a.phase());
