@@ -245,8 +245,8 @@ impl GameButton {
 
     pub fn of(platform: Platform) -> &'static [GameButton] {
         match platform {
-            Platform::Gba | Platform::Gbav => &GameButton::ALL,
-            Platform::Gb | Platform::Gbc => &GameButton::GAME_BOY,
+            Platform::Gba | Platform::Gbav | Platform::Snes => &GameButton::ALL,
+            Platform::Gb | Platform::Gbc | Platform::Nes => &GameButton::GAME_BOY,
             #[cfg(feature = "nds")]
             Platform::Nds => &GameButton::ALL,
         }

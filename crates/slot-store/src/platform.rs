@@ -7,20 +7,31 @@ pub enum Platform {
     Gb,
     Gbc,
     Gbav,
+    Nes,
+    Snes,
     #[cfg(feature = "nds")]
     Nds,
 }
 
 impl Platform {
     #[cfg(not(feature = "nds"))]
-    pub const ALL: [Platform; 4] = [Platform::Gba, Platform::Gbav, Platform::Gbc, Platform::Gb];
+    pub const ALL: [Platform; 6] = [
+        Platform::Gba,
+        Platform::Gbav,
+        Platform::Gbc,
+        Platform::Gb,
+        Platform::Nes,
+        Platform::Snes,
+    ];
     #[cfg(feature = "nds")]
-    pub const ALL: [Platform; 5] = [
+    pub const ALL: [Platform; 7] = [
         Platform::Nds,
         Platform::Gba,
         Platform::Gbav,
         Platform::Gbc,
         Platform::Gb,
+        Platform::Nes,
+        Platform::Snes,
     ];
 
     pub fn name(self) -> &'static str {
@@ -29,8 +40,20 @@ impl Platform {
             Platform::Gb => "Game Boy",
             Platform::Gbc => "Game Boy Color",
             Platform::Gbav => "Game Boy Advance Video",
+            Platform::Nes => "Nintendo Entertainment System",
+            Platform::Snes => "Super Nintendo",
             #[cfg(feature = "nds")]
             Platform::Nds => "Nintendo DS",
+        }
+    }
+
+    pub fn short_name(self) -> &'static str {
+        match self {
+            Platform::Nes => "NES",
+            Platform::Snes => "SNES",
+            #[cfg(feature = "nds")]
+            Platform::Nds => "NDS",
+            other => other.name(),
         }
     }
 
@@ -40,6 +63,8 @@ impl Platform {
             Platform::Gb => "GB",
             Platform::Gbc => "GBC",
             Platform::Gbav => "GBAV",
+            Platform::Nes => "NES",
+            Platform::Snes => "SNES",
             #[cfg(feature = "nds")]
             Platform::Nds => "NDS",
         }
@@ -56,6 +81,8 @@ impl Platform {
         match self {
             Platform::Gba | Platform::Gbav => &["gba"],
             Platform::Gb | Platform::Gbc => &["gb", "gbc"],
+            Platform::Nes => &["nes", "unf", "unif"],
+            Platform::Snes => &["sfc", "smc"],
             #[cfg(feature = "nds")]
             Platform::Nds => &["nds"],
         }
@@ -65,6 +92,8 @@ impl Platform {
         match self {
             Platform::Gba | Platform::Gbav => (240, 160),
             Platform::Gb | Platform::Gbc => (160, 144),
+            Platform::Nes => (256, 240),
+            Platform::Snes => (256, 224),
             #[cfg(feature = "nds")]
             Platform::Nds => (256, 192),
         }

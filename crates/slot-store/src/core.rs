@@ -11,21 +11,38 @@ pub enum Core {
     Mgba,
     Gpsp,
     Gambatte,
+    Fceumm,
+    Snes9x,
     #[cfg(feature = "nds")]
     Dsperate,
 }
 
 impl Core {
     #[cfg(not(feature = "nds"))]
-    pub const ALL: [Core; 3] = [Core::Mgba, Core::Gpsp, Core::Gambatte];
+    pub const ALL: [Core; 5] = [
+        Core::Mgba,
+        Core::Gpsp,
+        Core::Gambatte,
+        Core::Fceumm,
+        Core::Snes9x,
+    ];
     #[cfg(feature = "nds")]
-    pub const ALL: [Core; 4] = [Core::Mgba, Core::Gpsp, Core::Gambatte, Core::Dsperate];
+    pub const ALL: [Core; 6] = [
+        Core::Mgba,
+        Core::Gpsp,
+        Core::Gambatte,
+        Core::Fceumm,
+        Core::Snes9x,
+        Core::Dsperate,
+    ];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             Core::Mgba => "mgba",
             Core::Gpsp => "gpsp",
             Core::Gambatte => "gambatte",
+            Core::Fceumm => "fceumm",
+            Core::Snes9x => "snes9x",
             #[cfg(feature = "nds")]
             Core::Dsperate => "dsperate",
         }
@@ -40,6 +57,8 @@ impl Core {
             Core::Mgba => "mGBA",
             Core::Gpsp => "gpSP",
             Core::Gambatte => "Gambatte",
+            Core::Fceumm => "FCEUmm",
+            Core::Snes9x => "Snes9x",
             #[cfg(feature = "nds")]
             Core::Dsperate => "DSperate",
         }
@@ -50,6 +69,8 @@ impl Core {
             "mgba" => Some(Core::Mgba),
             "gpsp" => Some(Core::Gpsp),
             "gambatte" => Some(Core::Gambatte),
+            "fceumm" => Some(Core::Fceumm),
+            "snes9x" => Some(Core::Snes9x),
             #[cfg(feature = "nds")]
             "dsperate" => Some(Core::Dsperate),
             _ => None,
@@ -60,9 +81,14 @@ impl Core {
         match self {
             #[cfg(feature = "nds")]
             _ if platform == Platform::Nds => self == Core::Dsperate,
-            Core::Mgba => true,
+            Core::Mgba => matches!(
+                platform,
+                Platform::Gba | Platform::Gbav | Platform::Gb | Platform::Gbc
+            ),
             Core::Gpsp => platform.hardware() == Platform::Gba,
             Core::Gambatte => matches!(platform, Platform::Gb | Platform::Gbc),
+            Core::Fceumm => platform == Platform::Nes,
+            Core::Snes9x => platform == Platform::Snes,
             #[cfg(feature = "nds")]
             Core::Dsperate => false,
         }
@@ -72,9 +98,15 @@ impl Core {
         match platform {
             Platform::Gba | Platform::Gbav => [Core::Mgba, Core::Gpsp],
             Platform::Gb | Platform::Gbc => [Core::Mgba, Core::Gambatte],
+            Platform::Nes => [Core::Fceumm, Core::Fceumm],
+            Platform::Snes => [Core::Snes9x, Core::Snes9x],
             #[cfg(feature = "nds")]
             Platform::Nds => [Core::Dsperate, Core::Dsperate],
         }
+    }
+
+    pub fn default_for(platform: Platform) -> Core {
+        Core::pair(platform)[0]
     }
 }
 
@@ -95,6 +127,8 @@ pub fn core_for_platform(root: &Path, stem: &str, platform: Platform, gb_core: C
         .filter(|core| core.runs(platform))
         .unwrap_or_else(|| match platform {
             Platform::Gb | Platform::Gbc if gb_core.runs(platform) => gb_core,
+            Platform::Nes => Core::Fceumm,
+            Platform::Snes => Core::Snes9x,
             #[cfg(feature = "nds")]
             Platform::Nds => Core::Dsperate,
             _ => Core::Mgba,
