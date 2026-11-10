@@ -16,9 +16,11 @@
 
 A bespoke, Game Boy-centric frontend for the Anbernic RG SP.
 
-Has support for GBA, GBC, GB, NES and SNES. This is **slot-n**, a fork of [slot](https://github.com/slot-cfw/slot) 1.15.2.
+Has support for GBA, GBC, GB, NES, SNES, and a **Video** shelf (`Games/MEDIA`) that shows movies and shows as VHS tapes. This is **slot-n**, a fork of [slot](https://github.com/slot-cfw/slot) 1.15.2.
 
 HDMI (H700, plug in a cable and Slot switches to 1080p60) and Bluetooth controllers (Settings → Tools → Wi-Fi → Bluetooth / Controllers) are included. Per-system wallpapers are Settings → Wallpaper → Shelf.
+
+Videos go in `Games/MEDIA` (`.mp4` `.mkv` `.avi` `.webm` `.mov` `.m4v`). They sit on the Video shelf as VHS tapes. Playback needs `ffmpeg_libretro.so` in `System/` (not in the 0.2 image).
 
 > [!IMPORTANT]
 > ROMs must be unzipped. slot does not read `.zip` or `.7z` files.

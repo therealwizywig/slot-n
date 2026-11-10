@@ -247,6 +247,7 @@ impl GameButton {
         match platform {
             Platform::Gba | Platform::Gbav | Platform::Snes => &GameButton::ALL,
             Platform::Gb | Platform::Gbc | Platform::Nes => &GameButton::GAME_BOY,
+            Platform::MediaPlayer => &GameButton::ALL,
             #[cfg(feature = "nds")]
             Platform::Nds => &GameButton::ALL,
         }

@@ -14,6 +14,9 @@ pub const DIRS: &[&str] = &[
     "Games/GBAV",
     "Games/GB",
     "Games/GBC",
+    "Games/NES",
+    "Games/SNES",
+    "Games/MEDIA",
     #[cfg(feature = "nds")]
     "Games/NDS",
     "Guides",
@@ -26,6 +29,9 @@ pub const DIRS: &[&str] = &[
     "Labels/GBAV",
     "Labels/GB",
     "Labels/GBC",
+    "Labels/NES",
+    "Labels/SNES",
+    "Labels/MEDIA",
     #[cfg(feature = "nds")]
     "Labels/NDS",
     "Logs",
@@ -40,6 +46,9 @@ pub const DIRS: &[&str] = &[
     "Saves/GBAV",
     "Saves/GB",
     "Saves/GBC",
+    "Saves/NES",
+    "Saves/SNES",
+    "Saves/MEDIA",
     #[cfg(feature = "nds")]
     "Saves/NDS",
     "States",
@@ -47,6 +56,9 @@ pub const DIRS: &[&str] = &[
     "States/GBAV",
     "States/GB",
     "States/GBC",
+    "States/NES",
+    "States/SNES",
+    "States/MEDIA",
     #[cfg(feature = "nds")]
     "States/NDS",
     "System",

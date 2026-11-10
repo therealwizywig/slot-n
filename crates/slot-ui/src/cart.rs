@@ -68,6 +68,7 @@ struct Spec {
 enum Shape {
     Gba,
     Gb(GbShell),
+    Vhs,
     #[cfg(feature = "nds")]
     Ds,
 }
@@ -85,7 +86,7 @@ const DS_LABEL: (u32, u32, u32, u32) = (DS_LABEL_X, DS_LABEL_Y, DS_LABEL_W, DS_L
 
 pub fn folder_gb_shell(cart: &Cart) -> Option<GbShell> {
     match cart.platform {
-        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => None,
+        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => None,
         #[cfg(feature = "nds")]
         Platform::Nds => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
@@ -110,7 +111,7 @@ pub fn shelf_shape(cart: &Cart) -> (Option<GbShell>, bool) {
     let shell = crate::shell::indexed_shell(cart);
     let outline = cart.shell.map(|c| c.outline);
     let shape = match (cart.platform, outline) {
-        (Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes, _) => None,
+        (Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer, _) => None,
         #[cfg(feature = "nds")]
         (Platform::Nds, _) => None,
         (_, Some(Outline::Notched)) => Some(GbShell::Notched),
@@ -126,7 +127,7 @@ pub fn shelf_shape(cart: &Cart) -> (Option<GbShell>, bool) {
 
 pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
     match cart.platform {
-        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => None,
+        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => None,
         #[cfg(feature = "nds")]
         Platform::Nds => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
@@ -158,6 +159,9 @@ fn shape_of(cart: &Cart) -> Shape {
     #[cfg(feature = "nds")]
     if cart.platform == Platform::Nds {
         return Shape::Ds;
+    }
+    if cart.platform == Platform::MediaPlayer {
+        return Shape::Vhs;
     }
     match gb_shell_of(cart) {
         None => Shape::Gba,
@@ -192,6 +196,18 @@ fn spec(shape: Shape) -> Spec {
                 GbShell::Rounded => bitmaps::gbc_cart(),
             },
         },
+        Shape::Vhs => {
+            let m = crate::media::Media::Vhs;
+            let (w, h) = m.size();
+            Spec {
+                w,
+                h,
+                label: m.label(),
+                mask: m.mask(),
+                mould: Mould::Vhs,
+                paint: m.neutral(),
+            }
+        }
         #[cfg(feature = "nds")]
         Shape::Ds => Spec {
             w: bitmaps::DS_CART_W,
@@ -211,6 +227,7 @@ const GB_SEATED_H: u32 = 259;
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => (SEATED_W, SEATED_H),
+        Platform::MediaPlayer => crate::media::Media::Vhs.seated(SEATED_W),
         #[cfg(feature = "nds")]
         Platform::Nds => ((SEATED_H * bitmaps::DS_CART_W + bitmaps::DS_CART_H / 2) / bitmaps::DS_CART_H, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
@@ -220,6 +237,7 @@ pub fn seated_box(platform: Platform) -> (u32, u32) {
 pub fn cart_box(platform: Platform) -> (u32, u32) {
     let s = spec(match platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => Shape::Gba,
+        Platform::MediaPlayer => Shape::Vhs,
         #[cfg(feature = "nds")]
         Platform::Nds => Shape::Ds,
         Platform::Gb | Platform::Gbc => Shape::Gb(GbShell::Notched),
@@ -463,6 +481,7 @@ pub fn neutral_shell(mould: Mould, clear: bool) -> Vec<u8> {
         Mould::Gba => Shape::Gba,
         Mould::Notched => Shape::Gb(GbShell::Notched),
         Mould::Rounded => Shape::Gb(GbShell::Rounded),
+        Mould::Vhs => Shape::Vhs,
         #[cfg(feature = "nds")]
         Mould::Ds => Shape::Ds,
     };
@@ -528,6 +547,7 @@ fn dress(s: &Spec, rgba: &mut [u8]) {
         Mould::Gba => "GAME BOY ADVANCE",
         Mould::Notched => "GAME BOY",
         Mould::Rounded => "GAME BOY COLOR",
+        Mould::Vhs => "VIDEO",
         #[cfg(feature = "nds")]
         Mould::Ds => "NINTENDO DS",
     };

@@ -10,6 +10,8 @@ mod barcode;
 mod battery;
 mod board;
 mod cart;
+mod media;
+pub use media::Media;
 mod checkbox;
 mod edit_text;
 mod clock;

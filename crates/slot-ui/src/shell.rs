@@ -82,6 +82,10 @@ pub fn shell_for(cart: &Cart) -> Shell {
     }
     match cart.platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => gba_shell_for(&gba_code(cart)),
+        Platform::MediaPlayer => crate::shell::Shell {
+            colour: crate::media::Media::Vhs.colour(),
+            finish: Finish::Solid,
+        },
         #[cfg(feature = "nds")]
         Platform::Nds => gba_shell_for(""),
         Platform::Gb | Platform::Gbc => gb_shell_for(&cart.rom),
@@ -97,6 +101,10 @@ pub fn indexed_shell(cart: &Cart) -> Option<Shell> {
             false => Some(gba_shell_for(&cart.code)),
             true => slot_store::header_index::peek_gba_code(&cart.rom).map(|c| gba_shell_for(&c)),
         },
+        Platform::MediaPlayer => Some(Shell {
+            colour: crate::media::Media::Vhs.colour(),
+            finish: Finish::Solid,
+        }),
         #[cfg(feature = "nds")]
         Platform::Nds => None,
         Platform::Gb | Platform::Gbc => slot_store::header_index::peek_gb_header(&cart.rom)

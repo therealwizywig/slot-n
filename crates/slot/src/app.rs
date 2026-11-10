@@ -3148,7 +3148,7 @@ impl App {
 
     fn bezel_pick(&mut self, platform: Platform) -> &mut BezelPick {
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => &mut self.state.bezel_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => &mut self.state.bezel_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => &mut self.state.bezel_gba,
             Platform::Gb => &mut self.state.bezel_gb,
@@ -3158,7 +3158,7 @@ impl App {
 
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
         let pick = match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => &self.state.bezel_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => &self.state.bezel_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => &self.state.bezel_gba,
             Platform::Gb => &self.state.bezel_gb,
@@ -3214,7 +3214,7 @@ impl App {
 
     fn overlay_pick(&mut self, platform: Platform) -> &mut Option<String> {
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => &mut self.state.overlay_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => &mut self.state.overlay_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => &mut self.state.overlay_nds,
             Platform::Gb => &mut self.state.overlay_gb,
@@ -3224,7 +3224,7 @@ impl App {
 
     pub fn resolved_overlay(&self, platform: Platform) -> Option<slot_store::OverlayEntry> {
         let pick = match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => &self.state.overlay_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => &self.state.overlay_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => &self.state.overlay_nds,
             Platform::Gb => &self.state.overlay_gb,
@@ -3948,7 +3948,7 @@ impl App {
 
     fn scale_of(&self, platform: Platform) -> Scale {
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => self.state.scale_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => self.state.scale_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => self.state.scale_gba,
             Platform::Gb => self.state.scale_gb,
@@ -3960,7 +3960,7 @@ impl App {
         match platform {
             Platform::Gb => self.state.stretch_gb,
             Platform::Gbc => self.state.stretch_gbc,
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => Stretch::Classic,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => Stretch::Classic,
             #[cfg(feature = "nds")]
             Platform::Nds => Stretch::Classic,
         }
@@ -4097,7 +4097,7 @@ impl App {
             (at + n - 1) % n
         }];
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => self.state.scale_gba = to,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => self.state.scale_gba = to,
             #[cfg(feature = "nds")]
             Platform::Nds => self.state.scale_gba = to,
             Platform::Gb => self.state.scale_gb = to,
@@ -4700,7 +4700,7 @@ impl App {
 
     pub fn screen_shader(&self) -> Shader {
         match self.playing_platform() {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => self.gba_shader(),
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => self.gba_shader(),
             #[cfg(feature = "nds")]
             Platform::Nds => Shader::Off,
             Platform::Gb => self.state.shader_gb,
@@ -4730,7 +4730,7 @@ impl App {
 
     pub fn colour_correction_for(&self, platform: Platform) -> bool {
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => self.state.colour_correction_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => self.state.colour_correction_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => false,
             Platform::Gb => self.state.colour_correction_gb,
@@ -4740,7 +4740,7 @@ impl App {
 
     pub fn blending_for(&self, platform: Platform) -> Blending {
         match platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => self.state.blending_gba,
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => self.state.blending_gba,
             #[cfg(feature = "nds")]
             Platform::Nds => Blending::Off,
             Platform::Gb => self.state.blending_gb,
@@ -5920,7 +5920,7 @@ impl App {
         }
         let gba_shaders = self.gba_shaders();
         let (shader, choices) = match self.playing_platform() {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => (&mut self.state.shader_gba, gba_shaders),
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => (&mut self.state.shader_gba, gba_shaders),
             #[cfg(feature = "nds")]
             Platform::Nds => (&mut self.state.shader_gba, gba_shaders),
             Platform::Gb => (&mut self.state.shader_gb, &Shader::GB[..]),
@@ -5975,7 +5975,7 @@ impl App {
         }
         if action == Action::ColourCorrectionToggle {
             let row = match self.playing_platform() {
-                Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => QuickRow::GbaColourCorrection,
+                Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => QuickRow::GbaColourCorrection,
                 #[cfg(feature = "nds")]
                 Platform::Nds => QuickRow::GbaColourCorrection,
                 Platform::Gb => QuickRow::GbColourCorrection,
@@ -11196,7 +11196,7 @@ impl App {
             return;
         };
         let (scale, well) = match scene.cart.platform {
-            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => (
+            Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => (
                 1.0,
                 [slot_ui::LABEL_X, slot_ui::LABEL_Y, slot_ui::LABEL_W, slot_ui::LABEL_H],
             ),
@@ -14344,7 +14344,7 @@ struct OverlayScan {
 
 pub fn overlay_slot(platform: Platform) -> usize {
     match platform {
-        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => 0,
+        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => 0,
         Platform::Gb => 1,
         Platform::Gbc => 2,
         #[cfg(feature = "nds")]
@@ -14354,7 +14354,7 @@ pub fn overlay_slot(platform: Platform) -> usize {
 
 fn bezel_slot(platform: Platform) -> usize {
     match platform {
-        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => 0,
+        Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes | Platform::MediaPlayer => 0,
         #[cfg(feature = "nds")]
         Platform::Nds => 0,
         Platform::Gb => 1,

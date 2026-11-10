@@ -86,6 +86,13 @@ pub fn layout(canvas_w: f32, platform: Platform) -> Layout {
             if narrow { 268.0 } else { slot_ui::CART_W as f32 },
             slot_ui::CART_H as f32 / slot_ui::CART_W as f32,
         ),
+        Platform::MediaPlayer => {
+            let (w, h) = slot_ui::Media::Vhs.size();
+            (
+                if narrow { 268.0 } else { w as f32 },
+                h as f32 / w as f32,
+            )
+        }
         #[cfg(feature = "nds")]
         Platform::Nds => (
             (if narrow { 268.0 } else { slot_ui::CART_W as f32 }) * slot_ui::DS_CART_W as f32
@@ -99,6 +106,7 @@ pub fn layout(canvas_w: f32, platform: Platform) -> Layout {
     };
     let inset = match platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => 0.0,
+        Platform::MediaPlayer => 0.0,
         #[cfg(feature = "nds")]
         Platform::Nds => 0.0,
         Platform::Gb | Platform::Gbc => w * GB_ART_INSET / GB_CART_W as f32,
@@ -108,6 +116,12 @@ pub fn layout(canvas_w: f32, platform: Platform) -> Layout {
     let wide = (w - 2.0 * inset) * cos + h * sin;
     let sticker = match platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => slot_ui::LABEL_W as f32 / slot_ui::CART_W as f32,
+        Platform::MediaPlayer => {
+            let (w, _, lw, _) = slot_ui::Media::Vhs.label();
+            let (sw, _) = slot_ui::Media::Vhs.size();
+            let _ = w;
+            lw as f32 / sw as f32
+        }
         #[cfg(feature = "nds")]
         Platform::Nds => slot_ui::DS_LABEL_W as f32 / slot_ui::DS_CART_W as f32,
         Platform::Gb | Platform::Gbc => slot_ui::GB_LABEL_W as f32 / GB_CART_W as f32,
@@ -501,6 +515,10 @@ pub fn well_of(cart: &slot_store::Cart) -> [u32; 4] {
 pub fn shelf_rect(canvas: slot_gfx::Canvas, cart: &slot_store::Cart) -> [f32; 4] {
     let (w, h) = match cart.platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => (slot_ui::CART_W as f32, slot_ui::CART_H as f32),
+        Platform::MediaPlayer => {
+            let (w, h) = slot_ui::Media::Vhs.size();
+            (w as f32, h as f32)
+        }
         #[cfg(feature = "nds")]
         Platform::Nds => (slot_ui::DS_CART_W as f32, slot_ui::DS_CART_H as f32),
         Platform::Gb | Platform::Gbc => (GB_CART_W as f32, GB_CART_H as f32),

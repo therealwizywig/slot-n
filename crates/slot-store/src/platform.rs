@@ -9,22 +9,24 @@ pub enum Platform {
     Gbav,
     Nes,
     Snes,
+    MediaPlayer,
     #[cfg(feature = "nds")]
     Nds,
 }
 
 impl Platform {
     #[cfg(not(feature = "nds"))]
-    pub const ALL: [Platform; 6] = [
+    pub const ALL: [Platform; 7] = [
         Platform::Gba,
         Platform::Gbav,
         Platform::Gbc,
         Platform::Gb,
         Platform::Nes,
         Platform::Snes,
+        Platform::MediaPlayer,
     ];
     #[cfg(feature = "nds")]
-    pub const ALL: [Platform; 7] = [
+    pub const ALL: [Platform; 8] = [
         Platform::Nds,
         Platform::Gba,
         Platform::Gbav,
@@ -32,6 +34,7 @@ impl Platform {
         Platform::Gb,
         Platform::Nes,
         Platform::Snes,
+        Platform::MediaPlayer,
     ];
 
     pub fn name(self) -> &'static str {
@@ -42,6 +45,7 @@ impl Platform {
             Platform::Gbav => "Game Boy Advance Video",
             Platform::Nes => "Nintendo Entertainment System",
             Platform::Snes => "Super Nintendo",
+            Platform::MediaPlayer => "Video",
             #[cfg(feature = "nds")]
             Platform::Nds => "Nintendo DS",
         }
@@ -65,6 +69,7 @@ impl Platform {
             Platform::Gbav => "GBAV",
             Platform::Nes => "NES",
             Platform::Snes => "SNES",
+            Platform::MediaPlayer => "MEDIA",
             #[cfg(feature = "nds")]
             Platform::Nds => "NDS",
         }
@@ -83,6 +88,7 @@ impl Platform {
             Platform::Gb | Platform::Gbc => &["gb", "gbc"],
             Platform::Nes => &["nes", "unf", "unif"],
             Platform::Snes => &["sfc", "smc"],
+            Platform::MediaPlayer => &["mp4", "mkv", "avi", "webm", "mov", "m4v"],
             #[cfg(feature = "nds")]
             Platform::Nds => &["nds"],
         }
@@ -94,6 +100,7 @@ impl Platform {
             Platform::Gb | Platform::Gbc => (160, 144),
             Platform::Nes => (256, 240),
             Platform::Snes => (256, 224),
+            Platform::MediaPlayer => (640, 480),
             #[cfg(feature = "nds")]
             Platform::Nds => (256, 192),
         }

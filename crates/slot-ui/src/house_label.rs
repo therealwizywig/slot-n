@@ -21,6 +21,7 @@ pub const DS_H: u32 = 1104;
 pub fn size(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba | Platform::Gbav | Platform::Nes | Platform::Snes => (W, H),
+        Platform::MediaPlayer => (960, 704),
         #[cfg(feature = "nds")]
         Platform::Nds => (DS_W, DS_H),
         Platform::Gb | Platform::Gbc => (GB_W, GB_H),

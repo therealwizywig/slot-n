@@ -9,6 +9,7 @@ pub enum Mould {
     Gba,
     Notched,
     Rounded,
+    Vhs,
     #[cfg(feature = "nds")]
     Ds,
 }
@@ -63,7 +64,7 @@ const PLUG_JOIN_PNG: &[u8] = include_bytes!("../../../assets/link_plug_join.png"
 const ADAPTER_PNG: &[u8] = include_bytes!("../../../assets/link_adapter.png");
 const STICKER_PNG: &[u8] = include_bytes!("../../../assets/sticker.png");
 
-fn load(bytes: &'static [u8], w: u32, h: u32, slot: &'static OnceLock<Vec<u8>>) -> &'static [u8] {
+pub(crate) fn load(bytes: &'static [u8], w: u32, h: u32, slot: &'static OnceLock<Vec<u8>>) -> &'static [u8] {
     slot.get_or_init(|| {
         let (mut rgba, sw, sh) = decode_png_bytes(bytes).expect("a template png decodes");
         if sh == h && sw > w {
@@ -396,6 +397,7 @@ pub fn shell_asset(mould: Mould, clear: bool) -> &'static [u8] {
         (Mould::Gba, true) => (GBA_CLEAR_PNG, GBA_CART_W, GBA_CART_H, &GBA_CLEAR),
         (Mould::Notched, true) => (GB_CLEAR_PNG, GB_CART_W, GB_CART_H, &GB_CLEAR),
         (Mould::Rounded, true) => (GBC_CLEAR_PNG, GB_CART_W, GB_CART_H, &GBC_CLEAR),
+        (Mould::Vhs, _) => return crate::media::Media::Vhs.neutral(),
         #[cfg(feature = "nds")]
         (Mould::Ds, _) => return ds_cart(),
     };

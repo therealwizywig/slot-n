@@ -237,7 +237,7 @@ pub fn colour_option(
             "GBC only"
         },
         )),
-        Core::Fceumm | Core::Snes9x => None,
+        Core::Fceumm | Core::Snes9x | Core::Ffmpeg => None,
     }
 }
 
@@ -273,7 +273,7 @@ pub fn blend_option(which: Core, blending: Blending) -> (&'static str, &'static 
         (Core::Gambatte, Blending::Off) => ("gambatte_mix_frames", "disabled"),
         (Core::Gambatte, Blending::Mix) => ("gambatte_mix_frames", "mix"),
         (Core::Gambatte, Blending::Ghosting) => ("gambatte_mix_frames", "lcd_ghosting"),
-        (Core::Fceumm | Core::Snes9x, _) => ("fceumm_palette", "default"),
+        (Core::Fceumm | Core::Snes9x | Core::Ffmpeg, _) => ("fceumm_palette", "default"),
         #[cfg(feature = "nds")]
         (Core::Dsperate, _) => ("dsperate_blending", "off"),
     }
