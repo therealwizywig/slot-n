@@ -129,6 +129,8 @@ pub enum QuickRow {
     Wifi,
     WifiPower,
     Networks,
+    Bluetooth,
+    BtDevices,
     CheckUpdates,
     Server,
     Romm,
@@ -147,7 +149,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 133 + cfg!(feature = "nds") as usize] = [
+    pub const ALL: [QuickRow; 135 + cfg!(feature = "nds") as usize] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -268,6 +270,8 @@ impl QuickRow {
         QuickRow::Wifi,
         QuickRow::WifiPower,
         QuickRow::Networks,
+        QuickRow::Bluetooth,
+        QuickRow::BtDevices,
         QuickRow::CheckUpdates,
         QuickRow::Server,
         QuickRow::Romm,
@@ -308,7 +312,12 @@ impl QuickRow {
         QuickRow::DateTime,
     ];
 
-    pub const WIFI: [QuickRow; 2] = [QuickRow::WifiPower, QuickRow::Networks];
+    pub const WIFI: [QuickRow; 4] = [
+        QuickRow::WifiPower,
+        QuickRow::Networks,
+        QuickRow::Bluetooth,
+        QuickRow::BtDevices,
+    ];
 
     pub const NETWORK: [QuickRow; 4 + cfg!(feature = "nds") as usize] = [
         QuickRow::Server,
@@ -546,7 +555,9 @@ impl QuickRow {
             | QuickRow::KidMode
             | QuickRow::KidShelf
             | QuickRow::Wifi => &QuickRow::GENERAL,
-            QuickRow::WifiPower | QuickRow::Networks => &QuickRow::WIFI,
+            QuickRow::WifiPower | QuickRow::Networks | QuickRow::Bluetooth | QuickRow::BtDevices => {
+                &QuickRow::WIFI
+            }
             QuickRow::CheckUpdates
             | QuickRow::FetchArt
             | QuickRow::Romm
@@ -728,6 +739,8 @@ impl QuickRow {
             QuickRow::FetchBoxArt => "Fetch Box Art",
             QuickRow::Network => "Tools",
             QuickRow::Wifi | QuickRow::WifiPower => "Wi-Fi",
+            QuickRow::Bluetooth => "Bluetooth",
+            QuickRow::BtDevices => "Controllers",
             QuickRow::Networks => "Network",
             QuickRow::CheckUpdates => "Check for Updates",
             QuickRow::Server => "Gamebit",
@@ -846,6 +859,7 @@ impl QuickRow {
                 | QuickRow::Network
                 | QuickRow::Wifi
                 | QuickRow::Networks
+                | QuickRow::BtDevices
                 | QuickRow::CheckUpdates
                 | QuickRow::Server
                 | QuickRow::Romm

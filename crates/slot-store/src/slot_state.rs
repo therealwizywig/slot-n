@@ -472,6 +472,8 @@ pub struct SlotState {
     pub show_recents: bool,
     pub show_titles: bool,
     pub wifi_off: bool,
+    /// Bluetooth radio should come back on at boot.
+    pub bluetooth: bool,
     pub gb_core: Core,
     pub left_stick_dpad: bool,
     pub lid_off_min: Option<u8>,
@@ -659,6 +661,7 @@ impl Default for SlotState {
             show_recents: false,
             show_titles: false,
             wifi_off: false,
+            bluetooth: false,
             gb_core: Core::Gambatte,
             left_stick_dpad: true,
             lid_off_min: None,
@@ -781,6 +784,9 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     if s.wifi_off {
         text.push_str("wifi_off=1\n");
     }
+    if s.bluetooth {
+        text.push_str("bluetooth=1\n");
+    }
     text.push_str(&format!("gb_core={}\n", s.gb_core.as_str()));
     text.push_str(&format!("left_stick_dpad={}\n", s.left_stick_dpad as u8));
     text.push_str(&format!("auto_load={}\n", s.auto_load.key()));
@@ -864,6 +870,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut show_recents = None;
     let mut show_titles = None;
     let mut wifi_off = None;
+    let mut bluetooth = None;
     let mut gb_core = None;
     let mut left_stick_dpad = None;
     let mut lid_off_min = None;
@@ -931,6 +938,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "show_recents" => show_recents = flag(value),
             "show_titles" => show_titles = flag(value),
             "wifi_off" => wifi_off = flag(value),
+            "bluetooth" => bluetooth = flag(value),
             "gb_core" => gb_core = Core::parse(value).filter(|c| c.runs(Platform::Gb)),
             "left_stick_dpad" => left_stick_dpad = flag(value),
             "lid_off_min" => lid_off_min = value.parse().ok().filter(|m| LID_OFF_MIN.contains(m)),
@@ -1008,6 +1016,7 @@ fn parse(text: &str) -> Option<SlotState> {
         show_recents: show_recents.unwrap_or(fallback.show_recents),
         show_titles: show_titles.unwrap_or(fallback.show_titles),
         wifi_off: wifi_off.unwrap_or(fallback.wifi_off),
+        bluetooth: bluetooth.unwrap_or(fallback.bluetooth),
         gb_core: gb_core.unwrap_or(Core::Mgba),
         left_stick_dpad: left_stick_dpad.unwrap_or(fallback.left_stick_dpad),
         lid_off_min,

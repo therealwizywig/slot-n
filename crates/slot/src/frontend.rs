@@ -540,6 +540,13 @@ impl Frontend {
             .app_mut()
             .set_romm_jobs(crate::romm::romm_jobs(platform.root().to_path_buf(), crate::romm::http_api));
         session.app_mut().set_wifi(wifi_worker(platform.root()));
+        if crate::bluetooth::present() {
+            let bluetooth = crate::bluetooth::Bluetooth::for_card(platform.root());
+            if session.app().bluetooth_on() {
+                bluetooth.turn_on();
+            }
+            session.app_mut().set_bluetooth(bluetooth);
+        }
         #[cfg(feature = "device")]
         session
             .app_mut()

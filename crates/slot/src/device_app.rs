@@ -7,6 +7,7 @@ use slot::pacer::Pacer;
 use slot::screen::Screen;
 use slot::input::DeviceInput;
 use slot::panel_turn::{panel_turn, PanelTurn};
+use slot_gfx::hdmi::{self, CableWatch};
 use slot_gfx::{Compositor, DsPass, DsScreen, FbdevSurface, KmsSurface, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
@@ -21,6 +22,14 @@ const LOG_SYNC: Duration = Duration::from_secs(1);
 
 pub fn run() {
     slot::boot_time::mark("start");
+    let hdmi_paths = hdmi::Paths::default();
+    let target = slot::baseos::var("BASEOS_TARGET");
+    let rk = slot::baseos::var("BASEOS_PLATFORM").as_deref() == Some("rk3568");
+    let on_tv = !rk && hdmi::sync(&hdmi_paths, hdmi::panel_for(target.as_deref()));
+    if on_tv {
+        std::env::set_var("SLOT_AUDIO_HDMI", "1");
+    }
+    slot::boot_time::mark("hdmi");
     let _ = std::thread::Builder::new()
         .name("slot-fonts".into())
         .spawn(slot_ui::warm_fonts);
@@ -33,6 +42,7 @@ pub fn run() {
     let opened: Result<Box<dyn Surface>, _> = match slot::baseos::var("BASEOS_PLATFORM").as_deref()
     {
         Some("rk3568") => KmsSurface::new().map(|s| Box::new(s) as Box<dyn Surface>),
+        _ if on_tv => FbdevSurface::sized(hdmi::HDMI_FB).map(|s| Box::new(s) as Box<dyn Surface>),
         _ => FbdevSurface::new().map(|s| Box::new(s) as Box<dyn Surface>),
     };
     let mut surface = match opened {
@@ -53,11 +63,15 @@ pub fn run() {
     slot::boot_time::mark("compositor");
     let panel = surface.window_size();
     let env = |key| std::env::var(key).ok();
-    let turn = panel_turn(
-        panel,
-        slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
-        env("SLOT_ROTATE").as_deref(),
-    );
+    let turn = if on_tv {
+        PanelTurn::None
+    } else {
+        panel_turn(
+            panel,
+            slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
+            env("SLOT_ROTATE").as_deref(),
+        )
+    };
     let turned = turn != PanelTurn::None;
     let window = if turned { (panel.1, panel.0) } else { panel };
     eprintln!(
@@ -86,6 +100,7 @@ pub fn run() {
     };
     slot::boot_time::mark("audio");
     let mut frontend = Frontend::boot_with(Box::new(platform), sink);
+    frontend.app_mut().set_external_display(on_tv);
     slot::boot_time::mark("frontend");
     let target = slot::baseos::var("BASEOS_TARGET").unwrap_or_default();
     let keymap = slot::input::evdev::Keymap::of_system();
@@ -128,9 +143,15 @@ pub fn run() {
     };
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
     let mut stages = Stages::default();
+    let mut cable = CableWatch::new(hdmi_paths, on_tv);
     loop {
         pacer.wait();
         let began = Instant::now();
+        if !rk && cable.changed(began) {
+            eprintln!("slot: hdmi: the cable changed, saving and starting again");
+            frontend.relaunch();
+            return;
+        }
         input.steer_with_stick(frontend.app().left_stick_dpad());
         frontend.advance(&mut input);
         frontend.set_ds_touch(input.touch());

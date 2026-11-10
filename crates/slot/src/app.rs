@@ -393,6 +393,9 @@ pub enum Phase {
         ssid: String,
         row: usize,
     },
+    Bluetooth {
+        pick: usize,
+    },
     RommPair,
     Unwrap {
         stem: String,
@@ -756,6 +759,8 @@ pub struct App {
     studio_hex: Option<(String, crate::studio_view::Style)>,
     wifi_wanted_at: Option<Millis>,
     wifi: Option<(crate::wifi::Wifi, std::time::Instant, Millis)>,
+    bluetooth: Option<crate::bluetooth::Bluetooth>,
+    on_tv: bool,
     joined_hidden: Option<(String, bool)>,
     wifi_bars: u8,
     wifi_faces: Option<[[slot_ui::NetFace; 4]; 2]>,
@@ -979,6 +984,8 @@ impl App {
             studio_hex: None,
             wifi_wanted_at: None,
             wifi: None,
+            bluetooth: None,
+            on_tv: false,
             joined_hidden: None,
             wifi_bars: 3,
             wifi_faces: None,
@@ -2806,6 +2813,7 @@ impl App {
                 QuickValue::Dark
             }),
             QuickRow::WifiPower => Some(QuickValue::flag(!self.state.wifi_off)),
+            QuickRow::Bluetooth => Some(QuickValue::flag(self.state.bluetooth)),
             QuickRow::RommProtocol => Some(match self.romm.protocol {
                 crate::romm::Protocol::Https => QuickValue::Https,
                 crate::romm::Protocol::Http => QuickValue::Http,
@@ -2824,6 +2832,7 @@ impl App {
             | QuickRow::Network
             | QuickRow::Wifi
             | QuickRow::Networks
+            | QuickRow::BtDevices
             | QuickRow::CheckUpdates
             | QuickRow::Server
             | QuickRow::About
@@ -3588,6 +3597,11 @@ impl App {
         match self.romm.paired() {
             true => hidden.extend(QuickRow::ROMM_SETUP),
             false => hidden.extend(QuickRow::ROMM_PAIRED),
+        }
+        if self.bluetooth.is_none() {
+            hidden.extend([QuickRow::Bluetooth, QuickRow::BtDevices]);
+        } else if !self.state.bluetooth {
+            hidden.push(QuickRow::BtDevices);
         }
         if self.romm.protocol == crate::romm::Protocol::Http {
             hidden.push(QuickRow::RommSelfSigned);
@@ -5254,6 +5268,7 @@ impl App {
             Phase::Networks { .. } => self.networks_input(action),
             Phase::NetworkScan { .. } => self.network_scan_input(action),
             Phase::NetworkPage { .. } => self.network_page_input(action),
+            Phase::Bluetooth { .. } => self.bluetooth_input(action),
             Phase::RommPair => self.pair_input(action),
             _ => {}
         }
@@ -5397,6 +5412,8 @@ impl App {
                 self.set_update(Some(UpdateState::Notice(NetNotice::NoNetwork)));
             }
             QuickRow::WifiPower => self.set_wifi_off(!self.state.wifi_off),
+            QuickRow::Bluetooth => self.toggle_bluetooth(),
+            QuickRow::BtDevices => self.open_bluetooth(),
             QuickRow::Networks => self.open_networks(),
             QuickRow::RommProtocol | QuickRow::RommSelfSigned => self.change_setting(row, true),
             QuickRow::RommServer => {
@@ -5873,6 +5890,8 @@ impl App {
             | QuickRow::Wifi
             | QuickRow::WifiPower
             | QuickRow::Networks
+            | QuickRow::Bluetooth
+            | QuickRow::BtDevices
             | QuickRow::CheckUpdates
             | QuickRow::Romm
             | QuickRow::RommProtocol
@@ -7116,6 +7135,7 @@ impl App {
                 | Phase::Networks { .. }
                 | Phase::NetworkScan { .. }
                 | Phase::NetworkPage { .. }
+                | Phase::Bluetooth { .. }
                 | Phase::RommPair
                 | Phase::Polaroids { .. }
                 | Phase::SetClock { .. }
@@ -7386,7 +7406,10 @@ impl App {
                 self.draw_menu_footer(out);
                 return;
             }
-            Phase::Networks { .. } | Phase::NetworkScan { .. } | Phase::NetworkPage { .. } => {
+            Phase::Networks { .. }
+            | Phase::NetworkScan { .. }
+            | Phase::NetworkPage { .. }
+            | Phase::Bluetooth { .. } => {
                 self.draw_networks(out);
                 return self.hud.draw(self.canvas(), self.now(), out);
             }
@@ -9712,6 +9735,14 @@ impl App {
         self.wifi_boot_blocked = false;
     }
 
+    pub fn set_bluetooth(&mut self, bluetooth: crate::bluetooth::Bluetooth) {
+        self.bluetooth = Some(bluetooth);
+    }
+
+    pub fn set_external_display(&mut self, on: bool) {
+        self.on_tv = on;
+    }
+
     pub fn wifi(&self) -> &crate::wifi::Snapshot {
         static NONE: std::sync::OnceLock<crate::wifi::Snapshot> = std::sync::OnceLock::new();
         match &self.wifi {
@@ -9811,6 +9842,10 @@ impl App {
         self.state.wifi_off
     }
 
+    pub fn bluetooth_on(&self) -> bool {
+        self.state.bluetooth
+    }
+
     pub fn set_wifi_off(&mut self, off: bool) {
         if self.state.wifi_off == off {
             return;
@@ -9824,6 +9859,87 @@ impl App {
             self.wifi_send(crate::wifi::Cmd::PowerOff);
         } else if self.wifi_wanted() {
             self.hold_wifi();
+        }
+    }
+
+    fn toggle_bluetooth(&mut self) {
+        self.state.bluetooth = !self.state.bluetooth;
+        self.persist();
+        match self.state.bluetooth {
+            true => {
+                if let Some(b) = &self.bluetooth {
+                    b.turn_on();
+                }
+            }
+            false => {
+                if let Some(b) = &self.bluetooth {
+                    b.turn_off();
+                }
+            }
+        }
+    }
+
+    fn open_bluetooth(&mut self) {
+        if !self.state.bluetooth {
+            self.toggle_bluetooth();
+        }
+        if let Some(b) = &self.bluetooth {
+            b.search();
+        }
+        self.phase = Phase::Bluetooth { pick: 0 };
+    }
+
+    fn bluetooth_input(&mut self, action: Action) {
+        let n = self
+            .bluetooth
+            .as_ref()
+            .map(|b| b.view().devices.len())
+            .unwrap_or(0);
+        let Phase::Bluetooth { pick } = &mut self.phase else {
+            return;
+        };
+        match action {
+            Action::GbaDown(Btn::B) | Action::QuickMenu => {
+                self.phase = Phase::QuickMenu {
+                    row: QuickRow::BtDevices,
+                };
+            }
+            Action::GbaDown(Btn::Y) => {
+                if let Some(b) = &self.bluetooth {
+                    b.search();
+                }
+            }
+            Action::GbaDown(Btn::Up) if n > 0 => {
+                *pick = (*pick + n - 1) % n;
+            }
+            Action::GbaDown(Btn::Down) if n > 0 => {
+                *pick = (*pick + 1) % n;
+            }
+            Action::GbaDown(Btn::A) if n > 0 => {
+                let at = *pick;
+                if let Some(b) = &self.bluetooth {
+                    let view = b.view();
+                    if let Some(d) = view.devices.get(at) {
+                        if d.connected {
+                            b.disconnect(&d.mac);
+                        } else if d.paired {
+                            b.connect(&d.mac);
+                        } else {
+                            b.pair(&d.mac);
+                        }
+                    }
+                }
+            }
+            Action::GbaDown(Btn::X) if n > 0 => {
+                let at = *pick;
+                if let Some(b) = &self.bluetooth {
+                    let view = b.view();
+                    if let Some(d) = view.devices.get(at) {
+                        b.forget(&d.mac);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
@@ -12247,6 +12363,55 @@ impl App {
                     message: None,
                 })
             }
+            Phase::Bluetooth { pick } => {
+                use crate::bluetooth::{BtBusy, Kind};
+                use crate::networks::Line;
+                let view = self.bluetooth.as_ref().map(|b| b.view());
+                let devices = view.as_ref().map(|v| v.devices.as_slice()).unwrap_or(&[]);
+                let n = devices.len();
+                let selected = if n == 0 { 0 } else { (*pick).min(n - 1) };
+                let lines = if n == 0 {
+                    vec![Line {
+                        label: "No devices yet".into(),
+                        value: None,
+                        lock: false,
+                        bars: None,
+                    }]
+                } else {
+                    devices
+                        .iter()
+                        .map(|d| Line {
+                            label: d.name.clone(),
+                            value: Some(if d.connected {
+                                "Connected".into()
+                            } else if d.paired {
+                                "Paired".into()
+                            } else {
+                                match d.kind {
+                                    Kind::Controller => "Controller",
+                                    Kind::Audio => "Headphones",
+                                    Kind::Other => "Device",
+                                }
+                                .into()
+                            }),
+                            lock: false,
+                            bars: None,
+                        })
+                        .collect()
+                };
+                let message = match view.as_ref().map(|v| &v.busy) {
+                    Some(BtBusy::Searching) => Some("Searching…"),
+                    Some(BtBusy::Starting) => Some("Starting…"),
+                    Some(BtBusy::Pairing(_)) => Some("Pairing…"),
+                    Some(BtBusy::Connecting(_)) => Some("Connecting…"),
+                    _ => Some("A pair  Y search  X forget"),
+                };
+                Some(NetScreen {
+                    selected,
+                    lines,
+                    message,
+                })
+            }
             _ => None,
         }
     }
@@ -12278,6 +12443,21 @@ impl App {
                     PageRow::AutoJoin => Some("Change"),
                     PageRow::Forget => Some("Forget"),
                 }
+            }
+            Phase::Bluetooth { pick } => {
+                let view = self.bluetooth.as_ref().map(|b| b.view());
+                let devices = view.as_ref().map(|v| v.devices.as_slice()).unwrap_or(&[]);
+                if devices.is_empty() {
+                    return Some("Search");
+                }
+                let d = &devices[(*pick).min(devices.len() - 1)];
+                Some(if d.connected {
+                    "Disconnect"
+                } else if d.paired {
+                    "Connect"
+                } else {
+                    "Pair"
+                })
             }
             _ => None,
         }
@@ -13253,7 +13433,7 @@ impl App {
     }
 
     fn doze_expired(&self) -> bool {
-        if self.link_active() {
+        if self.on_tv || self.link_active() {
             return false;
         }
         let (Phase::Doze { .. }, Some(power)) = (&self.phase, &self.power) else {

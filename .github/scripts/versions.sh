@@ -4,6 +4,13 @@ set -eu
 BASEOS_REPO="${BASEOS_REPO:-pvaibhav/BaseOS}"
 LIVE="${LIVE:-https://slot-cfw.fyi/versions.json}"
 
+# Official slot publishes slot-<tag>-h700.zip. Forks (slot-n) do not.
+if [ "${SLOT_REPO:-}" != "slot-cfw/slot" ]; then
+  echo "skipping versions.json for $SLOT_REPO"
+  echo '{}' > "${OUT:?}"
+  exit 0
+fi
+
 slot=$(gh release view --repo "$SLOT_REPO" --json tagName,assets | jq '
   .tagName as $t | ($t | ltrimstr("v")) as $v
   | first(.assets[] | select(.name == "slot-\($t)-h700.zip"))

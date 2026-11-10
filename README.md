@@ -18,6 +18,8 @@ A bespoke, Game Boy-centric frontend for the Anbernic RG SP.
 
 Has support for GBA, GBC, GB, NES and SNES. This is **slot-n**, a fork of [slot](https://github.com/slot-cfw/slot) 1.15.2.
 
+HDMI (H700, plug in a cable and Slot switches to 1080p60) and Bluetooth controllers (Settings → Tools → Wi-Fi → Bluetooth / Controllers) are included. Per-system wallpapers are Settings → Wallpaper → Shelf.
+
 > [!IMPORTANT]
 > ROMs must be unzipped. slot does not read `.zip` or `.7z` files.
 

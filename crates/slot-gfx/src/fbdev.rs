@@ -170,6 +170,11 @@ impl FbdevSurface {
         FbdevSurface::open(hint)
     }
 
+    pub fn sized(size: (u32, u32)) -> Result<Self, GfxError> {
+        eprintln!("slot: fb0 sized {}x{}", size.0, size.1);
+        FbdevSurface::open(size)
+    }
+
     fn open(hint: (u32, u32)) -> Result<Self, GfxError> {
         let egl = Egl::load()?;
         let gles = open("libGLESv2.so.2").or_else(|_| open("libGLESv2.so"))?;

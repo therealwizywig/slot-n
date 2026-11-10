@@ -12,6 +12,7 @@ mod fbdev;
 mod fbo;
 mod gl;
 mod grade;
+pub mod hdmi;
 #[cfg(target_os = "macos")]
 mod headless;
 #[cfg(feature = "host")]
