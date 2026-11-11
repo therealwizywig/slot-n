@@ -584,14 +584,27 @@ impl RetroCore for LibretroCore {
     fn load(&mut self, rom: &Path) -> Result<(), CoreError> {
         self.unload();
         self.state_size = None;
-        self.rom = std::fs::read(rom)?;
+        let mut sys = crate::ffi::SystemInfo::default();
+        unsafe { (self.api.get_system_info)(&mut sys) };
+        // A core that opens the file itself (FFmpeg on a two hour film) must not get a copy of
+        // the whole thing in RAM first: that is more than the handheld has.
+        self.rom = match sys.need_fullpath {
+            true => {
+                std::fs::metadata(rom)?;
+                Vec::new()
+            }
+            false => std::fs::read(rom)?,
+        };
         self.rom_path = Some(
             CString::new(rom.as_os_str().as_encoded_bytes())
                 .map_err(|_| CoreError::Load("rom path contains a nul".into()))?,
         );
         let info = GameInfo {
             path: self.rom_path.as_ref().map_or(ptr::null(), |p| p.as_ptr()),
-            data: self.rom.as_ptr() as *const c_void,
+            data: match self.rom.is_empty() {
+                true => ptr::null(),
+                false => self.rom.as_ptr() as *const c_void,
+            },
             size: self.rom.len(),
             meta: ptr::null(),
         };

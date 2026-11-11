@@ -143,7 +143,7 @@ pub fn run() {
     };
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
     let mut stages = Stages::default();
-    let mut cable = CableWatch::new(hdmi_paths, on_tv);
+    let mut cable = CableWatch::from_cable(hdmi_paths);
     loop {
         pacer.wait();
         let began = Instant::now();

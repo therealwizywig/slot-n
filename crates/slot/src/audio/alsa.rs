@@ -28,12 +28,32 @@ const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
 const HDMI_DEVICES: [&str; 2] = ["plughw:CARD=ahubhdmi,DEV=0", "plughw:ahubhdmi"];
 const HDMI_ENV: &str = "SLOT_AUDIO_HDMI";
 
-fn devices() -> Vec<&'static str> {
-    let mut out = Vec::new();
-    if std::env::var_os(HDMI_ENV).is_some() {
-        out.extend(HDMI_DEVICES);
+/// Connected Bluetooth headphones' bluealsa PCM, tried before everything else.
+static BLUETOOTH: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+/// Bumped whenever `BLUETOOTH` changes, so playback lets go of the old device and reopens.
+static ROUTE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Send sound to `device` (a bluealsa PCM name) while it is `Some`; back to the speaker,
+/// headphone jack or HDMI when `None`.
+pub fn set_bluetooth_output(device: Option<String>) {
+    let mut now = BLUETOOTH.lock().unwrap_or_else(|e| e.into_inner());
+    if *now != device {
+        eprintln!("slot: audio: bluetooth output {device:?}");
+        *now = device;
+        ROUTE.fetch_add(1, Ordering::Relaxed);
     }
-    out.extend(DEVICES);
+}
+
+fn bluetooth_output() -> Option<String> {
+    BLUETOOTH.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+fn devices() -> Vec<String> {
+    let mut out: Vec<String> = bluetooth_output().into_iter().collect();
+    if std::env::var_os(HDMI_ENV).is_some() {
+        out.extend(HDMI_DEVICES.map(String::from));
+    }
+    out.extend(DEVICES.map(String::from));
     out
 }
 
@@ -95,7 +115,7 @@ impl Alsa {
     fn open_pcm(&self, rate: u32) -> Result<*mut c_void, AudioError> {
         let mut last = AudioError::NoDevice;
         for name in devices() {
-            let Ok(cname) = CString::new(name) else {
+            let Ok(cname) = CString::new(name.as_str()) else {
                 continue;
             };
             let mut pcm: *mut c_void = std::ptr::null_mut();
@@ -239,10 +259,13 @@ impl Playback {
         let mut silence = Silence::quiet(RELEASE_AFTER);
         let mut pace = Pacer::new(span);
         let mut route = RouteWatch::new(std::env::var("ALSA_CONFIG_PATH").ok().as_deref());
+        let mut bt_route = ROUTE.load(Ordering::Relaxed);
         while !stop.load(Ordering::Relaxed) {
             ring.fill(&mut buf);
             let hold = silence.hear(&buf, span) || ring.awake();
-            let rerouted = self.follow_jack && route.changed();
+            let bt_now = ROUTE.load(Ordering::Relaxed);
+            let rerouted = (self.follow_jack && route.changed()) || bt_now != bt_route;
+            bt_route = bt_now;
             if rerouted && self.pcm.is_some() {
                 self.release();
                 eprintln!("slot: audio released to follow the new audio route");
@@ -271,7 +294,14 @@ impl Playback {
                 Some(pcm) => {
                     pace.reset();
                     if !self.write(pcm, &buf, ring) {
-                        return;
+                        // Headphones that walk out of range fail the write; fall back to the
+                        // speaker rather than going silent for the rest of the session.
+                        if bluetooth_output().is_none() {
+                            return;
+                        }
+                        self.release();
+                        set_bluetooth_output(None);
+                        bt_route = ROUTE.load(Ordering::Relaxed);
                     }
                 }
                 None => std::thread::sleep(pace.wait(Instant::now())),

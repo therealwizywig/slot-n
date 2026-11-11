@@ -414,6 +414,11 @@ fn commit_layer(_: &Path, _: (u32, u32), _: (u32, u32)) {}
 
 /// Watches the cable while Slot runs, and says when it has changed for long
 /// enough to act on: the same new state on two checks in a row.
+///
+/// It compares against where the cable was, never where the picture ended up.
+/// If a switch to the TV fails the picture stays on the panel with the cable
+/// in; judged against the picture that reads as a change on every check, and
+/// Slot would restart, fail the switch again, and restart forever.
 pub struct CableWatch {
     paths: Paths,
     on: bool,
@@ -424,6 +429,13 @@ pub struct CableWatch {
 const WATCH_EVERY: Duration = Duration::from_millis(500);
 
 impl CableWatch {
+    /// Watch from the cable as it is now, after start-up's switch.
+    pub fn from_cable(paths: Paths) -> Self {
+        let cable = paths.cable_in();
+        CableWatch::new(paths, cable)
+    }
+
+    /// Watch for the cable leaving `on` (true: plugged in).
     pub fn new(paths: Paths, on: bool) -> Self {
         CableWatch {
             paths,
@@ -583,5 +595,20 @@ mod tests {
         plug(&paths, "1");
         assert!(!watch.changed(t0 + WATCH_EVERY * 2));
         assert!(!watch.changed(t0 + WATCH_EVERY * 3));
+    }
+
+    #[test]
+    fn a_switch_that_failed_does_not_restart_slot_over_and_over() {
+        let (_d, paths) = fake_kernel();
+        // The cable is in, but the driver never moved the picture: no "hdmi output".
+        plug(&paths, "1");
+        let mut watch = CableWatch::from_cable(paths.clone());
+        let t0 = Instant::now();
+        for n in 1..6 {
+            assert!(!watch.changed(t0 + WATCH_EVERY * n), "check {n} restarted Slot");
+        }
+        plug(&paths, "0");
+        assert!(!watch.changed(t0 + WATCH_EVERY * 6));
+        assert!(watch.changed(t0 + WATCH_EVERY * 7), "pulling the cable is still a change");
     }
 }

@@ -611,7 +611,10 @@ fn network_sits_between_controls_and_about() {
             QuickRow::CheckUpdates
         ]
     );
-    assert_eq!(QuickRow::WIFI, [QuickRow::WifiPower, QuickRow::Networks]);
+    assert_eq!(
+        QuickRow::WIFI,
+        [QuickRow::WifiPower, QuickRow::Networks, QuickRow::Bluetooth, QuickRow::BtDevices]
+    );
     assert_eq!(QuickRow::GENERAL.last(), Some(&QuickRow::DateTime));
     let (_d, mut a, _) = on_carousel();
     common::connect(&mut a);
@@ -646,7 +649,10 @@ fn tools_holds_the_network_tools() {
             "Check for Updates"
         ]
     );
-    assert_eq!(QuickRow::WIFI.map(QuickRow::label), ["Wi-Fi", "Network"]);
+    assert_eq!(
+        QuickRow::WIFI.map(QuickRow::label),
+        ["Wi-Fi", "Network", "Bluetooth", "Controllers"]
+    );
     assert_eq!(QuickRow::Wifi.label(), "Wi-Fi");
     assert!(!QuickRow::GENERAL.contains(&QuickRow::FetchArt));
     assert_eq!(QuickRow::FetchArt.parent(), Some(QuickRow::Network));

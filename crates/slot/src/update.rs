@@ -351,6 +351,25 @@ fn host_wifi() -> bool {
     std::env::var_os("SLOT_WIFI").is_some()
 }
 
+/// slot-n is a fork: `LATEST` and `RELEASES` describe official Slot, whose zip has none of the
+/// fork's systems, HDMI or Bluetooth. Its version numbers (0.x) also always look older than
+/// Slot's (1.x), so every check would offer to replace the fork. Only BaseOS updates are offered.
+pub const OFFERS_UPSTREAM_SLOT: bool = false;
+
+/// `event` with any official Slot release taken out, unless this build takes those.
+pub fn without_upstream_slot(event: UpdateEvent) -> UpdateEvent {
+    match event {
+        UpdateEvent::Available(offers) if !OFFERS_UPSTREAM_SLOT => {
+            let left: Vec<Release> = offers.into_iter().filter(|r| r.kind != Kind::Slot).collect();
+            match left.is_empty() {
+                true => UpdateEvent::UpToDate,
+                false => UpdateEvent::Available(left),
+            }
+        }
+        other => other,
+    }
+}
+
 pub fn check_with(
     now_unix: u64,
     fetch: &mut dyn FnMut(&str) -> Result<Vec<u8>, UpdateFail>,
@@ -665,14 +684,14 @@ fn run(root: &Path, job: &UpdateJob, ticket: &Ticket, tx: &Sender<UpdateEvent>) 
         UpdateJob::Check => {
             let target = crate::baseos::var("BASEOS_TARGET");
             let version = crate::baseos::var("BASEOS_VERSION");
-            check_with(
+            without_upstream_slot(check_with(
                 now_unix(),
                 &mut |url| fetch(url, API_TIMEOUT, &mut |_| {}),
                 Running {
                     slot: crate::build_info::Build::current().version,
                     baseos: target.as_deref().zip(version.as_deref()),
                 },
-            )
+            ))
         }
         UpdateJob::Install(release) => {
             let mut report = |got| {

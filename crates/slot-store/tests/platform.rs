@@ -72,6 +72,7 @@ fn nds_is_a_platform_with_its_own_folder() {
             Platform::Gb,
             Platform::Nes,
             Platform::Snes,
+            Platform::MediaPlayer,
         ]
     );
 }

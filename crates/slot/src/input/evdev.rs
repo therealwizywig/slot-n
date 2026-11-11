@@ -19,12 +19,30 @@ pub const ABS_Y: u16 = 0x01;
 
 pub const STICK_DEADZONE: i32 = 2048;
 pub const DSOS_STICK_DEADZONE: i32 = 900;
+pub const GAMEPAD_STICK_DEADZONE: i32 = 8192;
+
+/// Linux bus types (`id/bustype`) an add-on controller arrives on.
+const BUS_USB: u16 = 0x03;
+const BUS_BLUETOOTH: u16 = 0x05;
+
+/// Whether the input device at `device` (`/sys/class/input/eventN/device`) is a controller
+/// plugged in or paired, rather than the handheld's own buttons.
+pub fn is_add_on(device: &Path) -> bool {
+    std::fs::read_to_string(device.join("id/bustype"))
+        .ok()
+        .and_then(|s| u16::from_str_radix(s.trim(), 16).ok())
+        .is_some_and(|bus| bus == BUS_USB || bus == BUS_BLUETOOTH)
+}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum Keymap {
     #[default]
     BaseOs,
     DsOs,
+    /// A controller plugged in over USB or paired over Bluetooth. Linux gives those the
+    /// standard gamepad codes (BTN_SOUTH, BTN_TL, BTN_SELECT, BTN_MODE...), which are not the
+    /// codes the handheld's own buttons use: under the BaseOS map a pad's Start reads as R2.
+    Gamepad,
 }
 
 impl Keymap {
@@ -47,6 +65,16 @@ impl Keymap {
         match self {
             Keymap::BaseOs => code_to_btn(code),
             Keymap::DsOs => dsos_code_to_btn(code),
+            Keymap::Gamepad => gamepad_code_to_btn(code),
+        }
+    }
+
+    /// The map for one input node: an add-on controller gets the standard gamepad map
+    /// whatever the handheld itself uses.
+    pub fn for_node(self, sys: &Path, node: &Path) -> Keymap {
+        match node.file_name() {
+            Some(name) if is_add_on(&sys.join(name).join("device")) => Keymap::Gamepad,
+            _ => self,
         }
     }
 
@@ -107,18 +135,19 @@ impl Keymap {
             let Some(name) = node.file_name() else {
                 return false;
             };
-            self.wanted_node(&sys.join(name).join("device"))
+            self.for_node(sys, node).wanted_node(&sys.join(name).join("device"))
         });
         nodes
     }
 
-    fn wanted_node(self, device: &Path) -> bool {
+    pub fn wanted_node(self, device: &Path) -> bool {
         let cap = |file: &str| std::fs::read_to_string(device.join("capabilities").join(file));
         let keys = cap("key").unwrap_or_default();
         let lid = cap("sw").is_ok_and(|sw| has_bit(&sw, SW_LID));
         let wanted: &[u16] = match self {
             Keymap::BaseOs => &WANTED,
             Keymap::DsOs => &DSOS_WANTED,
+            Keymap::Gamepad => &GAMEPAD_WANTED,
         };
         lid || wanted.iter().any(|bit| has_bit(&keys, *bit))
     }
@@ -130,7 +159,7 @@ impl Keymap {
     pub fn stick_axes(self) -> [u16; 2] {
         match self {
             Keymap::BaseOs => [ABS_LSX, ABS_LSY],
-            Keymap::DsOs => [ABS_X, ABS_Y],
+            Keymap::DsOs | Keymap::Gamepad => [ABS_X, ABS_Y],
         }
     }
 
@@ -138,6 +167,8 @@ impl Keymap {
         match self {
             Keymap::BaseOs => STICK_DEADZONE,
             Keymap::DsOs => DSOS_STICK_DEADZONE,
+            // Add-on sticks are scaled to +-32767 first; a quarter of the way out is a press.
+            Keymap::Gamepad => GAMEPAD_STICK_DEADZONE,
         }
     }
 }
@@ -163,6 +194,9 @@ pub struct Hat {
     hat: [i32; 2],
     stick: [i32; 2],
     steers: bool,
+    /// The stick axes' (min, max), when they are not centred on zero. Many Bluetooth pads
+    /// report 0..255 with 128 at rest.
+    range: [Option<(i32, i32)>; 2],
 }
 
 impl Hat {
@@ -188,6 +222,29 @@ impl Hat {
             Btn::Left => Some((0, -1)),
             Btn::Right => Some((0, 1)),
             _ => None,
+        }
+    }
+
+    /// A hat whose stick axes report from `x` and `y`'s (min, max).
+    pub fn with_range(keymap: Keymap, x: Option<(i32, i32)>, y: Option<(i32, i32)>) -> Hat {
+        Hat {
+            keymap,
+            range: [x, y],
+            ..Hat::default()
+        }
+    }
+
+    /// `v` on `axis` as -32767..32767 around the axis's own centre.
+    fn centred(&self, axis: usize, v: i32) -> i32 {
+        match self.range[axis] {
+            Some((min, max)) if max > min => {
+                let (mid, half) = (
+                    (i64::from(min) + i64::from(max)) / 2,
+                    (i64::from(max) - i64::from(min)) / 2,
+                );
+                ((i64::from(v) - mid) * 32767 / half.max(1)) as i32
+            }
+            _ => v,
         }
     }
 
@@ -218,8 +275,8 @@ impl Hat {
             EV_ABS => match ev.code {
                 ABS_HAT0X => (0, false, ev.value.signum()),
                 ABS_HAT0Y => (1, false, ev.value.signum()),
-                c if c == stick_x => (0, true, steer(ev.value)),
-                c if c == stick_y => (1, true, steer(ev.value)),
+                c if c == stick_x => (0, true, steer(self.centred(0, ev.value))),
+                c if c == stick_y => (1, true, steer(self.centred(1, ev.value))),
                 _ => return Vec::new(),
             },
             _ => return Vec::new(),
@@ -269,6 +326,20 @@ pub fn decode(bytes: &[u8]) -> Option<Ev> {
     })
 }
 
+/// The (min, max) the kernel gives for absolute axis `code` of `node`, through EVIOCGABS.
+pub fn abs_range(node: &Path, code: u16) -> Option<(i32, i32)> {
+    use std::os::unix::io::AsRawFd;
+    let file = std::fs::File::open(node).ok()?;
+    // struct input_absinfo: value, minimum, maximum, fuzz, flat, resolution.
+    let mut info = [0i32; 6];
+    let size = std::mem::size_of_val(&info) as u64;
+    let request = (2u64 << 30) | (size << 16) | ((b'E' as u64) << 8) | (0x40 + u64::from(code));
+    match unsafe { libc::ioctl(file.as_raw_fd(), request as _, info.as_mut_ptr()) } {
+        r if r < 0 => None,
+        _ => Some((info[1], info[2])),
+    }
+}
+
 const KEY_MAX: usize = 0x2ff;
 const EVIOCGKEY_NR: u64 = 0x18;
 
@@ -300,6 +371,31 @@ const DSOS_WANTED: [u16; 18] = [
     0x130, 0x131, 0x133, 0x134, 0x135, 0x136, 0x137, 0x138, 0x139, 0x13a, 0x13b, 0x220, 0x221,
     0x222, 0x223, 115, 114, 116,
 ];
+
+/// The standard Linux gamepad codes, laid out Nintendo-style by position: the bottom face
+/// button (BTN_SOUTH) is B and the right one (BTN_EAST) is A, as on the handheld.
+pub fn gamepad_code_to_btn(code: u16) -> Option<Btn> {
+    Some(match code {
+        0x131 => Btn::A,
+        0x130 => Btn::B,
+        0x133 => Btn::X,
+        0x134 => Btn::Y,
+        0x136 => Btn::L1,
+        0x137 => Btn::R1,
+        0x138 => Btn::L2,
+        0x139 => Btn::R2,
+        0x13a => Btn::Select,
+        0x13b => Btn::Start,
+        0x13c => Btn::Menu,
+        0x220 => Btn::Up,
+        0x221 => Btn::Down,
+        0x222 => Btn::Left,
+        0x223 => Btn::Right,
+        _ => return None,
+    })
+}
+
+const GAMEPAD_WANTED: [u16; 4] = [0x130, 0x131, 0x13a, 0x13b];
 
 pub fn code_to_btn(code: u16) -> Option<Btn> {
     Some(match code {

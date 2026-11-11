@@ -26,6 +26,7 @@ fn root_for(platform: Platform) -> TempDir {
             std::fs::write(dir.join("Game.gba"), rom).unwrap();
             d
         }
+        other => unimplemented!("no scale fixture for {other:?}"),
     }
 }
 

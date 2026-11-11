@@ -156,8 +156,34 @@ pub fn present_by(said: Option<&str>) -> bool {
     !matches!(said.map(str::trim), Some("0" | "no" | "false"))
 }
 
-fn work(mut radio: Box<dyn BtBackend>, jobs: Receiver<Job>, view: Arc<Mutex<BtView>>) {
-    let set = |f: &dyn Fn(&mut BtView)| f(&mut view.lock().unwrap_or_else(|e| e.into_inner()));
+fn work(radio: Box<dyn BtBackend>, jobs: Receiver<Job>, view: Arc<Mutex<BtView>>) {
+    work_routed(radio, jobs, view, &mut crate::audio::set_bluetooth_output)
+}
+
+/// The worker loop. `route` is told which headphones sound should play through (their bluealsa
+/// PCM) every time the device list changes, and `None` once none are connected.
+fn work_routed(
+    mut radio: Box<dyn BtBackend>,
+    jobs: Receiver<Job>,
+    view: Arc<Mutex<BtView>>,
+    route: &mut dyn FnMut(Option<String>),
+) {
+    let set = |f: &dyn Fn(&mut BtView)| {
+        let mut v = view.lock().unwrap_or_else(|e| e.into_inner());
+        f(&mut v);
+    };
+    let mut routed: Option<Option<String>> = None;
+    let mut reroute = |route: &mut dyn FnMut(Option<String>)| {
+        let want = view
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .audio()
+            .map(|d| alsa_device(&d.mac));
+        if routed.as_ref() != Some(&want) {
+            routed = Some(want.clone());
+            route(want);
+        }
+    };
     let name_of = |mac: &str| {
         view.lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -167,6 +193,7 @@ fn work(mut radio: Box<dyn BtBackend>, jobs: Receiver<Job>, view: Arc<Mutex<BtVi
             .map_or_else(|| mac.to_string(), |d| d.name.clone())
     };
     loop {
+        reroute(route);
         let on = view.lock().unwrap_or_else(|e| e.into_inner()).on;
         let job = match jobs.recv_timeout(POLL) {
             Ok(job) => job,
@@ -541,8 +568,29 @@ mod tests {
     }
 
     #[test]
+    fn sound_follows_headphones_in_and_out() {
+        let (jobs, rx) = channel();
+        let view = Arc::new(Mutex::new(BtView::default()));
+        let (said, heard) = channel::<Option<String>>();
+        let shared = view.clone();
+        std::thread::spawn(move || {
+            work_routed(Box::new(SimBt::default()), rx, shared, &mut |d| {
+                let _ = said.send(d);
+            })
+        });
+        let next = || heard.recv_timeout(Duration::from_secs(5)).expect("a route");
+        assert_eq!(next(), None, "with nothing connected sound stays on the handheld");
+        for job in [Job::On, Job::Search, Job::Pair("AA:00:00:00:00:02".into())] {
+            jobs.send(job).unwrap();
+        }
+        assert_eq!(next(), Some(alsa_device("AA:00:00:00:00:02")));
+        jobs.send(Job::Forget("AA:00:00:00:00:02".into())).unwrap();
+        assert_eq!(next(), None, "forgetting the headphones did not bring sound back");
+    }
+
+    #[test]
     fn baseos_saying_there_is_no_radio_hides_bluetooth() {
-        assert!(present_by(None), "a model that says nothing has no radio");
+        assert!(present_by(None), "a model that says nothing is taken to have a radio");
         assert!(present_by(Some("1")));
         assert!(!present_by(Some("0")));
         assert!(!present_by(Some(" no ")));

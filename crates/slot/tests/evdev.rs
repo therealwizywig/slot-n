@@ -429,3 +429,45 @@ fn an_unreadable_node_holds_nothing() {
         .held_keys(Path::new("/nonexistent/event9"))
         .is_empty());
 }
+
+#[test]
+fn an_add_on_controller_uses_the_standard_gamepad_codes() {
+    let pad = |code| decode(&packet(EV_KEY, code, 1)).and_then(|e| Keymap::Gamepad.to_raw(e));
+    // BTN_SOUTH / BTN_EAST: the bottom button is B and the right one A, as on the handheld.
+    assert_eq!(pad(0x130), Some(RawEvent::Down(Btn::B)));
+    assert_eq!(pad(0x131), Some(RawEvent::Down(Btn::A)));
+    // BTN_SELECT / BTN_START / BTN_MODE: under the BaseOS map these read as L2, R2 and nothing.
+    assert_eq!(pad(0x13a), Some(RawEvent::Down(Btn::Select)));
+    assert_eq!(pad(0x13b), Some(RawEvent::Down(Btn::Start)));
+    assert_eq!(pad(0x13c), Some(RawEvent::Down(Btn::Menu)));
+    assert_eq!(pad(0x136), Some(RawEvent::Down(Btn::L1)));
+    assert_eq!(pad(0x139), Some(RawEvent::Down(Btn::R2)));
+}
+
+#[test]
+fn a_bluetooth_or_usb_pad_is_picked_with_the_gamepad_map() {
+    let d = input_tree();
+    let (dev, sys) = (d.path().join("dev/input"), d.path().join("sys/class/input"));
+    write(&dev.join("event5"), "");
+    write(&sys.join("event5/device/name"), "8BitDo Pro 2\n");
+    write(&sys.join("event5/device/id/bustype"), "0005\n");
+    write(&sys.join("event5/device/capabilities/key"), "1000000000000 0 0 0 0\n");
+    write(&sys.join("event1/device/id/bustype"), "0019\n");
+    let picked = pick_devices(&dev, &sys);
+    assert!(picked.contains(&dev.join("event5")), "{picked:?}");
+    assert_eq!(Keymap::BaseOs.for_node(&sys, &dev.join("event5")), Keymap::Gamepad);
+    assert_eq!(Keymap::BaseOs.for_node(&sys, &dev.join("event1")), Keymap::BaseOs);
+}
+
+#[test]
+fn a_stick_that_rests_at_128_is_not_held_over() {
+    use slot::input::evdev::Hat;
+    const EV_ABS: u16 = 0x03;
+    let mut hat = Hat::with_range(Keymap::Gamepad, Some((0, 255)), Some((0, 255)));
+    hat.steer_with_stick(true);
+    let abs = |code, v| decode(&packet(EV_ABS, code, v)).unwrap();
+    assert!(hat.feed(abs(0x00, 128)).is_empty(), "resting at the middle pressed something");
+    assert_eq!(hat.feed(abs(0x00, 255)), vec![RawEvent::Down(Btn::Right)]);
+    assert_eq!(hat.feed(abs(0x00, 128)), vec![RawEvent::Up(Btn::Right)]);
+    assert_eq!(hat.feed(abs(0x01, 0)), vec![RawEvent::Down(Btn::Up)]);
+}

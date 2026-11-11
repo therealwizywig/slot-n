@@ -55,7 +55,7 @@ fn library(root: &Path) {
 }
 
 #[test]
-fn tags_are_the_four_platforms() {
+fn tags_are_every_platform() {
     let (_d, server) = start();
     let (status, body) = call(server.port(), "GET", "/api/tags", b"");
     assert_eq!(status, 200, "{body}");
@@ -63,7 +63,7 @@ fn tags_are_the_four_platforms() {
     let mut tags: Vec<String> =
         v["tags"].as_array().unwrap().iter().map(|t| t.as_str().unwrap().to_string()).collect();
     tags.sort();
-    assert_eq!(tags, ["GB", "GBA", "GBAV", "GBC"]);
+    assert_eq!(tags, ["GB", "GBA", "GBAV", "GBC", "MEDIA", "NES", "SNES"]);
     server.stop();
 }
 

@@ -764,3 +764,30 @@ fn a_check_on_the_ds_plus_offers_the_ds_plus_zip() {
     };
     assert!(offers[0].url.ends_with("slot-v1.11.0-rgdsplus.zip"), "{}", offers[0].url);
 }
+
+#[test]
+fn the_fork_is_never_offered_official_slot_over_itself() {
+    let slot = Release {
+        kind: Kind::Slot,
+        running: "0.2".into(),
+        version: "1.15.3".into(),
+        url: "https://github.com/slot-cfw/slot/releases/download/v1.15.3/slot-v1.15.3-h700.zip".into(),
+        sha256: [0; 32],
+        size: 1,
+    };
+    let baseos = bosupd_release(b"os");
+    assert_eq!(
+        slot::update::without_upstream_slot(UpdateEvent::Available(vec![slot.clone()])),
+        UpdateEvent::UpToDate,
+        "0.2 looks older than 1.15.3, so official Slot would replace the fork"
+    );
+    assert_eq!(
+        slot::update::without_upstream_slot(UpdateEvent::Available(vec![slot, baseos.clone()])),
+        UpdateEvent::Available(vec![baseos]),
+        "BaseOS updates are still offered"
+    );
+    assert_eq!(
+        slot::update::without_upstream_slot(UpdateEvent::Failed(UpdateFail::Bad)),
+        UpdateEvent::Failed(UpdateFail::Bad)
+    );
+}

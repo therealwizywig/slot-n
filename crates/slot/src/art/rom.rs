@@ -21,6 +21,12 @@ const CRC_CACHE: &str = "Cache/art/crc.txt";
 static CRC_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub fn cached_crc(root: &Path, rom: &Path) -> std::io::Result<u32> {
+    if slot_store::Platform::MediaPlayer.accepts(rom) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "videos have no art-server CRC",
+        ));
+    }
     let meta = std::fs::metadata(rom)?;
     let len = meta.len();
     let secs = meta
@@ -66,10 +72,12 @@ fn cached_line(line: &str, key: &str, len: u64, secs: u64) -> Option<u32> {
     u32::from_str_radix(c, 16).ok()
 }
 
+/// Games the art server could have a label for and that have none yet. Videos are left out:
+/// the server knows only cartridges, and finding a video's CRC means reading all of it.
 pub fn missing_art(root: &Path) -> Vec<Cart> {
     slot_store::scan(root)
         .unwrap_or_default()
         .into_iter()
-        .filter(|c| c.label.is_none())
+        .filter(|c| c.label.is_none() && c.platform != slot_store::Platform::MediaPlayer)
         .collect()
 }

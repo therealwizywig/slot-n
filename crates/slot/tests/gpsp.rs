@@ -224,6 +224,7 @@ fn both_cores_are_told_about_colour_correction_in_their_own_words() {
             Core::Mgba => "gpsp_color_correction",
             Core::Gpsp => "mgba_color_correction",
             Core::Gambatte => "gambatte_gbc_color_correction",
+            _ => unreachable!("only the Game Boy cores take colour correction"),
         };
         assert_eq!(
             core.option(theirs),

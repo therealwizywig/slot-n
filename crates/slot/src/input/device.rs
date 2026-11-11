@@ -2,12 +2,13 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use slot_input::{Btn, InputSource, Millis, RawEvent};
 
-use super::evdev::{decode, device_name, Ev, Hat, Keymap, EVENT_BYTES, EV_ABS, EV_KEY, EV_SYN};
+use super::evdev::{abs_range, decode, device_name, Ev, Hat, Keymap, EVENT_BYTES, EV_ABS, EV_KEY, EV_SYN};
 use super::trace;
 
 const DEV: &str = "/dev/input";
@@ -47,30 +48,25 @@ impl DeviceInput {
     fn open_traced(keymap: Keymap, dev: &Path, sys: &Path, trace: Option<Arc<Trace>>) -> Self {
         let pending: Arc<Mutex<Vec<RawEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let stick = Arc::new(AtomicBool::new(false));
+        let reading: Arc<Mutex<HashSet<PathBuf>>> = Arc::new(Mutex::new(HashSet::new()));
         let mut held = Vec::new();
+        let readers = Readers {
+            keymap,
+            sys: sys.to_path_buf(),
+            pending: pending.clone(),
+            stick: stick.clone(),
+            reading: reading.clone(),
+            trace: trace.clone(),
+        };
         for node in keymap.pick_devices(dev, sys) {
-            for b in keymap.held_keys(&node) {
+            for b in keymap.for_node(sys, &node).held_keys(&node) {
                 if !held.contains(&b) {
                     held.push(b);
                 }
             }
-            eprintln!(
-                "slot: input {} ({})",
-                node.display(),
-                device_name(sys, &node)
-            );
-            quicken_poll(sys, &node);
-            let queue = pending.clone();
-            let steers = stick.clone();
-            let name = node.display().to_string();
-            let trace = trace.clone();
-            let spawned = std::thread::Builder::new()
-                .name(format!("slot-input-{name}"))
-                .spawn(move || read_node(keymap, &node, &queue, &steers, trace.as_deref()));
-            if let Err(e) = spawned {
-                eprintln!("slot: input {name}: {e}");
-            }
+            readers.start(node);
         }
+        readers.watch(dev.to_path_buf());
         DeviceInput {
             held,
             pending,
@@ -90,6 +86,69 @@ impl DeviceInput {
 
     pub fn touch(&self) -> Option<(u8, u8)> {
         self.touch.as_ref().and_then(|t| t.get())
+    }
+}
+
+/// How often /dev/input is looked over for a controller that has just been plugged in or
+/// paired, or one that has come back.
+const HOTPLUG_EVERY: Duration = Duration::from_secs(2);
+
+/// What every input node's reader thread shares, so a node can be started at boot or later.
+#[derive(Clone)]
+struct Readers {
+    keymap: Keymap,
+    sys: PathBuf,
+    pending: Arc<Mutex<Vec<RawEvent>>>,
+    stick: Arc<AtomicBool>,
+    /// The nodes with a reader now. A reader takes its node out when the device goes away,
+    /// so the same node can be read again when the controller reconnects.
+    reading: Arc<Mutex<HashSet<PathBuf>>>,
+    trace: Option<Arc<Trace>>,
+}
+
+impl Readers {
+    fn start(&self, node: PathBuf) {
+        if !self.reading.lock().unwrap_or_else(|e| e.into_inner()).insert(node.clone()) {
+            return;
+        }
+        let keymap = self.keymap.for_node(&self.sys, &node);
+        eprintln!(
+            "slot: input {} ({}){}",
+            node.display(),
+            device_name(&self.sys, &node),
+            if keymap == Keymap::Gamepad { ", add-on controller" } else { "" }
+        );
+        quicken_poll(&self.sys, &node);
+        let me = self.clone();
+        let name = node.display().to_string();
+        let spawned = std::thread::Builder::new()
+            .name(format!("slot-input-{name}"))
+            .spawn(move || {
+                read_node(keymap, &node, &me.pending, &me.stick, me.trace.as_deref());
+                me.reading.lock().unwrap_or_else(|e| e.into_inner()).remove(&node);
+            });
+        if let Err(e) = spawned {
+            eprintln!("slot: input {name}: {e}");
+        }
+    }
+
+    /// Keep looking for controllers that turn up after boot.
+    fn watch(&self, dev: PathBuf) {
+        let me = self.clone();
+        let spawned = std::thread::Builder::new()
+            .name("slot-input-hotplug".into())
+            .spawn(move || loop {
+                std::thread::sleep(HOTPLUG_EVERY);
+                for node in me.keymap.pick_devices(&dev, &me.sys) {
+                    let known = me.reading.lock().unwrap_or_else(|e| e.into_inner()).contains(&node);
+                    if !known {
+                        me.start(node);
+                    }
+                }
+            });
+        if let Err(e) = spawned {
+            eprintln!("slot: input hotplug: {e}");
+        }
     }
 }
 
@@ -128,7 +187,24 @@ fn read_node(
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| node.display().to_string());
-    let mut hat = Hat::new(keymap);
+    let mut hat = match keymap {
+        Keymap::Gamepad => {
+            let [x, y] = keymap.stick_axes();
+            Hat::with_range(keymap, abs_range(node, x), abs_range(node, y))
+        }
+        _ => Hat::new(keymap),
+    };
+    // What this node holds down, let go of if the controller drops out mid-press.
+    let mut down: Vec<Btn> = Vec::new();
+    let let_go = |down: &mut Vec<Btn>| {
+        if down.is_empty() {
+            return;
+        }
+        queue
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend(down.drain(..).map(RawEvent::Up));
+    };
     let mut file = match File::open(node) {
         Ok(f) => f,
         Err(e) => {
@@ -139,12 +215,12 @@ fn read_node(
     let mut buf = [0u8; EVENT_BYTES * 16];
     loop {
         let read = match file.read(&mut buf) {
-            Ok(0) => return,
+            Ok(0) => return let_go(&mut down),
             Ok(n) => n,
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(e) => {
                 eprintln!("slot: input {}: {e}", node.display());
-                return;
+                return let_go(&mut down);
             }
         };
         let mut events = Vec::new();
@@ -165,6 +241,13 @@ fn read_node(
         }
         if events.is_empty() {
             continue;
+        }
+        for e in &events {
+            match *e {
+                RawEvent::Down(b) if !down.contains(&b) => down.push(b),
+                RawEvent::Up(b) => down.retain(|d| *d != b),
+                _ => {}
+            }
         }
         queue
             .lock()

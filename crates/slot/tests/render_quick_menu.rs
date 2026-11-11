@@ -758,7 +758,8 @@ fn the_wifi_page_renders() {
     assert_eq!(f.app().quick_menu(), Some(QuickRow::Networks));
     let px = composed(&mut f, &mut c, "network-page");
     let right = OUT_W as usize - 32;
-    for row in QuickRow::WIFI {
+    // Controllers only shows once the Bluetooth radio is on, and it is off here.
+    for row in QuickRow::WIFI.into_iter().filter(|r| *r != QuickRow::BtDevices) {
         let top = quick_row_top(slot_ui::Canvas::FRAMED, row, &[]) as usize;
         let first = *inked(&px, 40..360, top)
             .first()
@@ -767,7 +768,7 @@ fn the_wifi_page_renders() {
             (53..=57).contains(&first),
             "{row:?}'s label starts at x {first}"
         );
-        let valued = matches!(row, QuickRow::WifiPower | QuickRow::Networks);
+        let valued = matches!(row, QuickRow::WifiPower | QuickRow::Networks | QuickRow::Bluetooth);
         assert_eq!(
             ink_at(&px, right - 30..right, top),
             valued,
@@ -791,19 +792,22 @@ fn the_wifi_page_renders() {
     assert!(f.app().wifi_is_off());
     let off = composed(&mut f, &mut c, "network-page-off");
     let hidden = f.app().hidden_rows();
-    assert_eq!(QuickRow::WifiPower.shown(&hidden), [QuickRow::WifiPower]);
+    // Bluetooth has its own radio and stays when Wi-Fi goes off.
+    assert_eq!(
+        QuickRow::WifiPower.shown(&hidden),
+        [QuickRow::WifiPower, QuickRow::Bluetooth]
+    );
     let wifi = quick_row_top(slot_ui::Canvas::FRAMED, QuickRow::WifiPower, &[]) as usize;
     assert!(
         !inked(&off, 40..360, wifi).is_empty(),
         "the Wi-Fi row moved when Wi-Fi went off"
     );
-    for row in [QuickRow::Networks] {
-        let top = quick_row_top(slot_ui::Canvas::FRAMED, row, &[]) as usize;
-        assert!(
-            inked(&off, 40..right + 4, top).is_empty(),
-            "{row:?} is still drawn with Wi-Fi off"
-        );
-    }
+    // Networks goes and Bluetooth moves up into its place, so the row below is empty.
+    let below = quick_row_top(slot_ui::Canvas::FRAMED, QuickRow::Bluetooth, &[]) as usize;
+    assert!(
+        inked(&off, 40..right + 4, below).is_empty(),
+        "Networks is still drawn with Wi-Fi off"
+    );
 }
 
 #[test]

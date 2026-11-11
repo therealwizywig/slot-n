@@ -30,6 +30,20 @@ fn only_carts_without_labels_are_missing() {
     assert_eq!(stems, vec!["A".to_string()]);
 }
 
+#[test]
+fn videos_are_never_read_for_art() {
+    let d = tempfile::tempdir().unwrap();
+    for dir in ["Games/GBA", "Games/MEDIA"] {
+        std::fs::create_dir_all(d.path().join(dir)).unwrap();
+    }
+    std::fs::write(d.path().join("Games/GBA/A.gba"), vec![0u8; 0x200]).unwrap();
+    let film = d.path().join("Games/MEDIA/Film.mp4");
+    std::fs::write(&film, vec![0u8; 0x200]).unwrap();
+    let stems: Vec<String> = missing_art(d.path()).into_iter().map(|c| c.stem).collect();
+    assert_eq!(stems, vec!["A".to_string()], "a video was queued for Fetch Missing Art");
+    assert!(cached_crc(d.path(), &film).is_err(), "a video was read for its CRC");
+}
+
 fn rom_at(root: &std::path::Path, bytes: &[u8]) -> std::path::PathBuf {
     std::fs::create_dir_all(root.join("Games/NDS")).unwrap();
     let p = root.join("Games/NDS/Kart.nds");
