@@ -488,7 +488,7 @@ tasks:
         if [ "$(uname -s)-$(uname -m)" = "Linux-aarch64" ]; then
           sh -c '{{.CMD}}'
         else
-          docker run --rm --platform linux/arm64 -v "$PWD":/src -w /src rust:1-bullseye sh -c '{{.CMD}}'
+          docker run --rm --platform linux/arm64 -e SLOT_VERSION -v "$PWD":/src -w /src rust:1-bullseye sh -c '{{.CMD}}'
         fi
 
   build:device:
@@ -546,6 +546,10 @@ tasks:
       - cp vendor/mgba_libretro.so {{.OUT}}/System/
       - cp vendor/gpsp_libretro.so {{.OUT}}/System/
       - cp vendor/gambatte_libretro.so {{.OUT}}/System/
+      - file vendor/fceumm_libretro.so | grep -q aarch64
+      - file vendor/snes9x_libretro.so | grep -q aarch64
+      - cp vendor/fceumm_libretro.so {{.OUT}}/System/
+      - cp vendor/snes9x_libretro.so {{.OUT}}/System/
       - cp vendor/fsck.exfat {{.OUT}}/System/
       - cp -r licenses {{.OUT}}/System/licenses
       - cp vendor/exfatprogs-{{.EXFATPROGS_VERSION}}.tar.gz {{.OUT}}/System/licenses/

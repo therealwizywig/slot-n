@@ -29,3 +29,8 @@
 /.worktrees
 .superpowers/
 /.task/
+
+# Built card images and their download cache.
+*.img
+*.img.zip
+/.cache/
